@@ -1,16 +1,13 @@
-
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  Bell,
   Boxes,
   ChartNoAxesCombined,
-  ChevronDown,
   CircleDollarSign,
   ClipboardList,
   CreditCard,
@@ -225,7 +222,22 @@ function MetricCard({
 }
 
 export default function HomePage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [authenticated, setAuthenticated] = useState(false);
+    const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    setAuthenticated(true);
+  }, [router]);
+
+  if (!authenticated) return null;
 
   return (
     <div className="min-h-screen bg-[#f8f6f2] text-[#342d27]">
