@@ -74,14 +74,18 @@ export default function LoginPage() {
     setLoginSuccess(false);
     setLoginError(null);
 
-    try {
-      await authService.login({
-        login: values.login.trim(),
-        password: values.password,
-      });
+    try { 
+  const identifier = values.login.trim();
 
-      router.replace("/");
-    } catch (error) {
+  await authService.login({
+    ...(identifier.includes("@")
+      ? { email: identifier }
+      : { login: identifier }),
+    password: values.password,
+  });
+
+  router.replace("/");
+} catch (error) {
       setLoginError(getLoginError(error));
     }
   };
