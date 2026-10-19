@@ -146,12 +146,16 @@ function getRegisterError(error: unknown): string {
     return "Não foi possível conectar ao servidor. Tente novamente mais tarde ou contate o suporte.";
   }
 
-  switch (error.response.status) {
-    case 400:
-      return "Verifique os dados informados.";
+  const { status, data } = error.response;
 
+  switch (status) {
+    case 400:
     case 409:
-      return "Já existe um usuário com algum dos dados informados.";
+      return typeof data?.message === "string" && data.message.trim()
+        ? data.message
+        : status === 409
+          ? "Já existe um usuário cadastrado com algum dos dados informados."
+          : "Verifique os dados informados.";
 
     case 401:
       return "Não foi possível autorizar a operação.";
