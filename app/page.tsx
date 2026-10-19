@@ -161,14 +161,18 @@ function Sidebar({ close }: { close: () => void }) {
             </p>
           </div>
 
-          <Link
-            href="/login"
-            aria-label="Ir para login"
-            title="Ir para login"
-            className="text-[#bcb0a0] hover:text-white"
-          >
-            <LogOut className="h-4 w-4" />
-          </Link>
+          <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem("access_token");
+                window.location.replace("/login");
+              }}
+              aria-label="Sair"
+              title="Sair"
+              className="text-[#bcb0a0] hover:text-white"
+            >
+  <LogOut className="h-4 w-4" />
+</button>
         </div>
       </div>
     </div>

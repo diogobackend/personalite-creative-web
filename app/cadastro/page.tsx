@@ -143,7 +143,7 @@ function getRegisterError(error: unknown): string {
   }
 
   if (!error.response) {
-    return "Não foi possível conectar ao servidor. Verifique se o backend está disponível.";
+    return "Não foi possível conectar ao servidor. Tente novamente mais tarde ou contate o suporte.";
   }
 
   switch (error.response.status) {
