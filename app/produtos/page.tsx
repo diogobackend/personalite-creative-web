@@ -1,10 +1,10 @@
 "use client";
 
-
-
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import Link from "next/link";
+import axios from "axios";
+import { api } from "../../src/lib/api";
 
 import {
 
@@ -16,15 +16,11 @@ import {
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 
-
-
 type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
 
 type PricingType = "FIXED" | "TIERED" | "QUOTE";
 
 type ChargeType = "PER_ORDER" | "PER_UNIT" | "FIRST_PURCHASE";
-
-
 
 type ProductPrice = {
 
@@ -176,10 +172,6 @@ const sortOptions = [
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080").replace(/\/$/, "");
-
-
-
 function toIso(value: string) {
 
   return value ? new Date(value).toISOString() : "";
@@ -204,10 +196,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 const inputClass = "w-full min-w-0 rounded-xl border border-[#e8e0d4] bg-white px-3 py-2.5 text-sm font-normal text-[#342d27] outline-none transition focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
 
-
-
-
-
 export default function ProductsPageScreen() {
 
   const [draft, setDraft] = useState<Filters>(initialFilters);
@@ -230,11 +218,7 @@ export default function ProductsPageScreen() {
 
   const [error, setError] = useState<string | null>(null);
 
-  
-
   const [reloadKey, setReloadKey] = useState(0);
-
-
 
   const update = (field: keyof Filters, value: string) => setDraft((current) => ({ ...current, [field]: value }));
 
@@ -266,27 +250,10 @@ export default function ProductsPageScreen() {
 
       params.set("sortDirection", sortDirection);
 
-      const response = await fetch(`${apiBase}/products?${params.toString()}`, {
-
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-
+      const { data } = await api.get<ProductsPage>(`/products?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
         signal,
-
-        cache: "no-store",
-
       });
-
-      if (!response.ok) {
-
-        if (response.status === 401) throw new Error("Sessão expirada ou inválida. Faça login novamente.");
-
-        if (response.status === 403) throw new Error("Você não possui permissão para consultar produtos.");
-
-        throw new Error(`Não foi possível consultar os produtos (HTTP ${response.status}).`);
-
-      }
-
-      const data: ProductsPage = await response.json();
 
       if (!signal.aborted) setResult(data);
 
@@ -296,7 +263,17 @@ export default function ProductsPageScreen() {
 
         setResult(null);
 
-        setError(cause instanceof Error ? cause.message : "Erro inesperado ao carregar produtos.");
+        if (axios.isAxiosError(cause)) {
+          const status = cause.response?.status;
+          setError(
+            status === 401 ? "Sessão expirada ou inválida. Faça login novamente."
+              : status === 403 ? "Você não possui permissão para consultar produtos."
+              : !cause.response ? "Não foi possível conectar ao servidor."
+              : cause.response.data?.message || `Não foi possível consultar os produtos (HTTP ${status}).`
+          );
+        } else {
+          setError(cause instanceof Error ? cause.message : "Erro inesperado ao carregar produtos.");
+        }
 
       }
 
@@ -308,8 +285,6 @@ export default function ProductsPageScreen() {
 
   }, [applied, page, size, sortBy, sortDirection, reloadKey]);
 
-
-
   useEffect(() => {
 
     const controller = new AbortController();
@@ -320,14 +295,11 @@ export default function ProductsPageScreen() {
 
   }, [fetchProducts]);
 
-
-
   const search = (event: React.FormEvent<HTMLFormElement>) => {
 
     event.preventDefault();
 
     setPage(0);
-
 
     setApplied({ ...draft });
 
@@ -341,12 +313,9 @@ export default function ProductsPageScreen() {
 
     setPage(0);
 
-
   };
 
   const hasFilters = Object.values(applied).some(Boolean);
-
-
 
   return (
 
@@ -358,7 +327,7 @@ export default function ProductsPageScreen() {
 
           <h1 className="mt-2 font-serif text-3xl sm:text-4xl">Produtos</h1>
 
-          <p className="mt-2 text-sm text-stone-500">Consulte os produtos cadastrados, preços e taxas adicionais.</p>
+          
 
         </div>
 
@@ -369,8 +338,6 @@ export default function ProductsPageScreen() {
         </Link>
 
       </div>
-
-
 
       <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
 
@@ -456,13 +423,9 @@ export default function ProductsPageScreen() {
 
                 ))}
 
-                <Field label="Cadastrado a partir de"><input type="datetime-local" className={inputClass} value={draft.createdFrom} onChange={(e) => update("createdFrom", e.target.value)} /></Field>
-
-                <Field label="Cadastrado até"><input type="datetime-local" className={inputClass} value={draft.createdTo} onChange={(e) => update("createdTo", e.target.value)} /></Field>
 
               </div>
 
-              <p className="mt-4 text-xs text-stone-400">Ao informar um código, o backend ignora os demais filtros e a paginação.</p>
 
               <div className="mt-5 flex flex-wrap justify-end gap-3">
 
@@ -479,8 +442,6 @@ export default function ProductsPageScreen() {
         </form>
 
       </section>
-
-
 
       <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
 
@@ -534,8 +495,6 @@ export default function ProductsPageScreen() {
 
                   const lowestPrice = product.prices.length ? Math.min(...product.prices.map((price) => price.unitPrice)) : null;
 
-                  
-
                   return (
 
                     <tr key={product.id} className="transition-colors hover:bg-[#faf9f7]">
@@ -550,11 +509,10 @@ export default function ProductsPageScreen() {
 
                       <td className="px-4 py-4 text-sm text-stone-600">{product.minimumQuantity ?? "—"}</td>
 
-
-
                       <td className="px-6 py-4 text-right"><Link href={`/produtos/${product.id}`} aria-label={`Visualizar produto ${product.name}`} title="Visualizar produto" className="inline-flex items-center justify-center rounded-lg p-2 text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"><Eye className="h-5 w-5" /></Link></td>
 
                     </tr>
+
                   );
 
                 })}
