@@ -1,4 +1,4 @@
-const apiUrl = "http://localhost:8080"
+const apiUrl = "https://personalite-creative.onrender.com"
 
 if (!apiUrl) {
   throw new Error("NEXT_PUBLIC_API_URL não configurada");
