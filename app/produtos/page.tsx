@@ -493,22 +493,19 @@ export default function ProductsPageScreen() {
 
                 {result.content.map((product) => {
 
-                  const lowestPrice = product.prices.length ? Math.min(...product.prices.map((price) => price.unitPrice)) : null;
+                  const lowestPrice = product.prices.length
+                      ? [...product.prices].sort((a, b) => a.minimumQuantity - b.minimumQuantity)[0].unitPrice
+                      : null;
 
                   return (
 
                     <tr key={product.id} className="transition-colors hover:bg-[#faf9f7]">
 
                       <td className="px-6 py-4 text-sm font-semibold text-[#a98a58]">{product.code}</td>
-
                       <td className="px-4 py-4"><p className="max-w-[280px] truncate text-sm font-semibold" title={product.name}>{product.name}</p><p className="mt-1 text-xs text-stone-400">{pricingLabels[product.pricingType]}</p></td>
-
                       <td className="px-4 py-4 text-sm text-stone-600">{categories[product.category] || product.category}</td>
-
                       <td className="px-4 py-4 text-sm font-semibold">{lowestPrice == null ? "Sob consulta" : currency.format(lowestPrice)}</td>
-
                       <td className="px-4 py-4 text-sm text-stone-600">{product.minimumQuantity ?? "—"}</td>
-
                       <td className="px-6 py-4 text-right"><Link href={`/produtos/${product.id}`} aria-label={`Visualizar produto ${product.name}`} title="Visualizar produto" className="inline-flex items-center justify-center rounded-lg p-2 text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"><Eye className="h-5 w-5" /></Link></td>
 
                     </tr>
