@@ -499,10 +499,21 @@ export default function ProductsPageScreen() {
 
                   return (
 
-                    <tr key={product.id} className="transition-colors hover:bg-[#faf9f7]">
+                    <tr
+                      key={product.id}
+                      className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
+                    >
 
                       <td className="px-6 py-4 text-sm font-semibold text-[#a98a58]">{product.code}</td>
-                      <td className="px-4 py-4"><p className="max-w-[280px] truncate text-sm font-semibold" title={product.name}>{product.name}</p><p className="mt-1 text-xs text-stone-400">{pricingLabels[product.pricingType]}</p></td>
+                      <td className="px-4 py-4">
+                      <Link
+                        href={`/produtos/${product.id}`}
+                        title="Visualizar produto"
+                        className="block max-w-[280px] truncate text-sm font-semibold transition-colors hover:text-[#a98a58]"
+                      >
+                        {product.name}
+                      </Link>
+                    </td>
                       <td className="px-4 py-4 text-sm text-stone-600">{categories[product.category] || product.category}</td>
                       <td className="px-4 py-4 text-sm font-semibold">{lowestPrice == null ? "Sob consulta" : currency.format(lowestPrice)}</td>
                       <td className="px-4 py-4 text-sm text-stone-600">{product.minimumQuantity ?? "—"}</td>

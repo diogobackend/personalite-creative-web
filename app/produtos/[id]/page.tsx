@@ -167,7 +167,12 @@ function ProductDetailsContent() {
             <Detail label="Quantidade mínima" value={product.minimumQuantity == null ? "—" : number.format(product.minimumQuantity)} />
             <Detail label="Validade (dias)" value={display(product.shelfLifeDays)} />
             <Detail label="Prazo mínimo de produção (dias)" value={display(product.productionLeadTimeMinDays)} />
-            <Detail label="Prazo máximo de produção (dias)" value={display(product.productionLeadTimeMaxDays)} />
+            <Detail
+            label="Prazo máximo de produção (dias)"
+            value={product.productionLeadTimeMaxDays == null || product.productionLeadTimeMaxDays === 0
+                ? "—"
+                : display(product.productionLeadTimeMaxDays)}
+            />
           </dl>
         </Section>
 

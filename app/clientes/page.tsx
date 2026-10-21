@@ -301,13 +301,19 @@ export default function ClientesPage() {
 
                 <tbody className="divide-y divide-[#f0ece5]">
                 {result.content.map((client) => (
-                    <tr
-                    key={client.userId}
-                    className="transition-colors hover:bg-[#faf9f7]"
+                     <tr
+                      key={client.userId}
+                      className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
                     >
-                    <td className="px-6 py-4 text-sm font-semibold text-[#342d27]">
-                        {client.name}
-                    </td>
+                    <td className="px-6 py-4">
+                    <Link
+                      href={`/clientes/${client.userId}`}
+                      title="Visualizar cliente"
+                      className="block text-sm font-semibold text-[#342d27] transition-colors hover:text-[#a98a58]"
+                    >
+                      {client.name}
+                    </Link>
+                  </td>
 
                     <td className="px-4 py-4 text-sm text-stone-600">
                         {/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}@gmail\.com$/i.test(client.email)
