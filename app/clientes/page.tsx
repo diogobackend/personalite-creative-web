@@ -5,7 +5,7 @@ import Link from "next/link";
 import axios from "axios";
 import {
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye,
-  Filter, RefreshCw, Search, SlidersHorizontal, Users, X, Plus
+  Filter, RefreshCw, Search, SlidersHorizontal, Users, X, Plus, Pencil,
 } from "lucide-react";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import { api } from "../../src/lib/api";
@@ -288,59 +288,68 @@ export default function ClientesPage() {
           <div className="flex flex-col items-center px-6 py-16 text-center"><Users className="mb-4 h-10 w-10 text-[#cbb58e]" /><h3 className="text-base font-semibold">Nenhum cliente encontrado</h3><p className="mt-2 text-sm text-stone-400">Ajuste os filtros para consultar outros clientes.</p></div>
         ) : (
           <div className="overflow-x-auto">
-            
-                <table className="w-full min-w-[600px] text-left">
-                <thead className="bg-[#faf9f7] text-xs font-medium text-stone-500">
-                <tr>
-                    <th className="px-6 py-4">Nome</th>
-                    <th className="px-4 py-4">E-mail</th>
-                    <th className="px-4 py-4">CPF</th>
-                    <th className="px-6 py-4 text-right">Visualizar</th>
-                </tr>
-                </thead>
+  <table className="w-full min-w-[600px] text-left">
+    <thead className="bg-[#faf9f7] text-xs font-medium text-stone-500">
+      <tr>
+        <th className="px-6 py-4">Nome</th>
+        <th className="px-4 py-4">E-mail</th>
+        <th className="px-4 py-4">CPF</th>
+        <th className="px-6 py-4 text-right">Vizualizar / Editar</th>
+      </tr>
+    </thead>
 
-                <tbody className="divide-y divide-[#f0ece5]">
-                {result.content.map((client) => (
-                     <tr
-                      key={client.userId}
-                      className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
-                    >
-                    <td className="px-6 py-4">
-                    <Link
-                      href={`/clientes/${client.userId}`}
-                      title="Visualizar cliente"
-                      className="block text-sm font-semibold text-[#342d27] transition-colors hover:text-[#a98a58]"
-                    >
-                      {client.name}
-                    </Link>
-                  </td>
+    <tbody className="divide-y divide-[#f0ece5]">
+      {result.content.map((client) => (
+        <tr
+          key={client.userId}
+          className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
+        >
+          <td className="px-6 py-4">
+            <Link
+              href={`/clientes/${client.userId}`}
+              title="Visualizar cliente"
+              className="block text-sm font-semibold text-[#342d27] transition-colors hover:text-[#a98a58]"
+            >
+              {client.name}
+            </Link>
+          </td>
 
-                    <td className="px-4 py-4 text-sm text-stone-600">
-                        {/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}@gmail\.com$/i.test(client.email)
-                            ? "—"
-                            : client.email}
-                    </td>
+          <td className="px-4 py-4 text-sm text-stone-600">
+            {/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}@gmail\.com$/i.test(client.email)
+              ? "—"
+              : client.email}
+          </td>
 
-                    <td className="px-4 py-4 text-sm text-stone-600">
-                        {client.cpf || "—"}
-                    </td>
+          <td className="px-4 py-4 text-sm text-stone-600">
+            {client.cpf || "—"}
+          </td>
 
-                    <td className="px-6 py-4 text-right">
-                        <Link
-                        href={`/clientes/${client.userId}`}
-                        aria-label={`Visualizar ${client.name}`}
-                        title="Visualizar cliente"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] hover:bg-[#f7f0e6] hover:text-[#927448]"
-                        >
-                        <Eye className="h-5 w-5" />
-                        </Link>
-                    </td>
-                    </tr>
-                ))}
-                </tbody>
-                </table>
+          <td className="px-6 py-4 text-right">
+            <div className="flex items-center justify-end gap-2">
+              <Link
+                href={`/clientes/${client.userId}`}
+                aria-label={`Visualizar ${client.name}`}
+                title="Visualizar cliente"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"
+              >
+                <Eye className="h-5 w-5" />
+              </Link>
 
-          </div>
+              <Link
+                href={`/clientes/${client.userId}/editar`}
+                aria-label={`Editar ${client.name}`}
+                title="Editar cliente"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"
+              >
+                <Pencil className="h-5 w-5" />
+              </Link>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
         )}
 
         {result && !loading && !error && (

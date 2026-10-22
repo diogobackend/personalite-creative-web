@@ -487,7 +487,7 @@ export default function ProductsPageScreen() {
 
             <table className="w-full min-w-[790px] text-left">
 
-              <thead className="bg-[#faf9f7] text-xs font-medium text-stone-500"><tr><th className="px-6 py-4">Código</th><th className="px-4 py-4">Produto</th><th className="px-4 py-4">Categoria</th><th className="px-4 py-4">Preço inicial</th><th className="px-4 py-4">Qtd. mínima</th><th className="px-6 py-4 text-right">Visualizar</th></tr></thead>
+              <thead className="bg-[#faf9f7] text-xs font-medium text-stone-500"><tr><th className="px-6 py-4">Código</th><th className="px-4 py-4">Produto</th><th className="px-4 py-4">Categoria</th><th className="px-4 py-4">Preço inicial</th><th className="px-4 py-4">Qtd. mínima</th><th className="px-6 py-4 text-right">Visualizar / Editar</th></tr></thead>
 
               <tbody className="divide-y divide-[#f0ece5]">
 
