@@ -1,78 +1,48 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 import { api } from "../../../../src/lib/api";
 
-type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
-type PricingType = "FIXED" | "TIERED" | "QUOTE";
-type ChargeType = "PER_ORDER" | "PER_UNIT" | "FIRST_PURCHASE";
-type Price = { id: string; minimumQuantity: number; unitPrice: number };
-type Fee = { id: string; name: string; amount: number; chargeType: ChargeType; required: boolean; active: boolean };
+type Price = { id?: string; key: string; minimumQuantity: string; unitPrice: string };
+type Fee = { id?: string; key: string; name: string; amount: string; chargeType: string; required: boolean; active: boolean };
 type Product = {
-  id: string; code: string; name: string; category: Category; description: string | null;
-  minimumQuantity: number | null; pricingType: PricingType; shelfLifeDays: number | null;
+  id: string; code: string; name: string; category: string; description: string | null;
+  minimumQuantity: number | null; pricingType: string; shelfLifeDays: number | null;
   productionLeadTimeMinDays: number | null; productionLeadTimeMaxDays: number | null;
-  active: boolean; prices: Price[]; fees: Fee[];
+  active: boolean;
+  prices: { id: string; minimumQuantity: number; unitPrice: number }[];
+  fees: { id: string; name: string; amount: number; chargeType: string; required: boolean; active: boolean }[];
 };
-type Form = {
-  name: string; category: Category; description: string; minimumQuantity: string;
-  pricingType: PricingType; shelfLifeDays: string; productionLeadTimeMinDays: string;
-  productionLeadTimeMaxDays: string; active: boolean;
-};
-type PriceForm = { id: string; minimumQuantity: string; unitPrice: string };
-type FeeForm = { id: string; name: string; amount: string; chargeType: ChargeType; required: boolean; active: boolean };
 
-const categories: Record<Category, string> = {
-  GOURMET: "Gourmet", AGUAS: "Águas", GARRAFAS: "Garrafas", GLOSS: "Gloss", BOLSAS: "Bolsas",
-  NECESSAIRES: "Necessaires", LENCOS: "Lenços", PAPELARIA: "Papelaria", CAIXAS: "Caixas", KITS: "Kits",
-};
-const pricingTypes: Record<PricingType, string> = { FIXED: "Preço fixo", TIERED: "Por quantidade", QUOTE: "Sob consulta" };
-const chargeTypes: Record<ChargeType, string> = { PER_ORDER: "Por pedido", PER_UNIT: "Por unidade", FIRST_PURCHASE: "Primeira compra" };
-const inputClass = "w-full rounded-xl border border-[#e6ded2] bg-white px-3.5 py-3 text-sm text-[#302c29] outline-none transition focus:border-[#b18b52] focus:ring-2 focus:ring-[#b18b52]/10";
-const sectionClass = "rounded-2xl border border-[#e8e1d7] bg-white p-5 shadow-sm sm:p-7";
+const categories = ["SAVORY", "SWEET", "BEVERAGE", "OTHER"];
+const pricingTypes = ["FIXED", "TIERED", "QUOTE"];
+const chargeTypes = ["FIXED", "PER_UNIT", "PERCENTAGE"];
+const inputClass = "w-full rounded-xl border border-[#e8e1d7] bg-white px-3 py-2.5 text-sm text-[#342d27] outline-none focus:border-[#a98a58]";
+const labelClass = "mb-1.5 block text-sm font-medium text-[#342d27]";
+const sectionClass = "space-y-4 rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm";
+const newKey = () => crypto.randomUUID();
+const num = (value: string) => Number(value);
 const optionalNumber = (value: string) => value.trim() === "" ? null : Number(value);
-const positiveInteger = (value: string) => /^\d+$/.test(value) && Number(value) > 0;
-const nonNegativeInteger = (value: string) => /^\d+$/.test(value) && Number(value) >= 0;
-const moneyValid = (value: string, zeroAllowed = false) =>
-  value.trim() !== "" && /^\d+(\.\d{1,2})?$/.test(value) && (zeroAllowed ? Number(value) >= 0 : Number(value) > 0);
+const errorMessage = (error: unknown) => {
+  if (axios.isAxiosError(error)) return error.response?.data?.message ?? `Erro HTTP ${error.response?.status ?? "de conexão"}.`;
+  return error instanceof Error ? error.message : "Erro inesperado.";
+};
 
-function errorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    if (!error.response) return "Não foi possível conectar ao servidor.";
-    if (error.response.status === 401) return "Sua sessão expirou. Faça login novamente.";
-    if (error.response.status === 403) return "Você não possui permissão para editar produtos.";
-    if (error.response.status === 404) return "Produto não encontrado.";
-    const message = error.response.data?.message;
-    return typeof message === "string" && message.trim() ? message : `Falha na requisição (HTTP ${error.response.status}).`;
-  }
-  return error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block min-w-0"><span className="mb-1.5 block text-sm font-medium text-[#51483f]">{label}</span>{children}</label>;
-}
-
-function toForm(product: Product): Form {
-  return {
-    name: product.name, category: product.category, description: product.description ?? "",
-    minimumQuantity: product.minimumQuantity?.toString() ?? "", pricingType: product.pricingType,
-    shelfLifeDays: product.shelfLifeDays?.toString() ?? "",
-    productionLeadTimeMinDays: product.productionLeadTimeMinDays?.toString() ?? "",
-    productionLeadTimeMaxDays: product.productionLeadTimeMaxDays?.toString() ?? "", active: product.active,
-  };
-}
-
-function EditarProdutoContent() {
+function EditProductContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [original, setOriginal] = useState<Product | null>(null);
-  const [form, setForm] = useState<Form | null>(null);
-  const [prices, setPrices] = useState<PriceForm[]>([]);
-  const [fees, setFees] = useState<FeeForm[]>([]);
+  const [form, setForm] = useState({
+    name: "", category: "", description: "", minimumQuantity: "", pricingType: "",
+    shelfLifeDays: "", productionLeadTimeMinDays: "", productionLeadTimeMaxDays: "", active: true,
+  });
+  const [prices, setPrices] = useState<Price[]>([]);
+  const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,19 +50,23 @@ function EditarProdutoContent() {
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
-      setLoading(true);
-      setError(null);
       try {
         const token = localStorage.getItem("access_token");
-        if (!token || token === "undefined" || token === "null") throw new Error("Sessão não encontrada. Faça login novamente.");
+        if (!token) throw new Error("Sessão não encontrada. Faça login novamente.");
         const { data } = await api.get<Product>(`/products/${encodeURIComponent(id)}`, {
           headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
         });
         if (controller.signal.aborted) return;
         setOriginal(data);
-        setForm(toForm(data));
-        setPrices(data.prices.map((p) => ({ id: p.id, minimumQuantity: String(p.minimumQuantity), unitPrice: String(p.unitPrice) })));
-        setFees(data.fees.map((f) => ({ ...f, amount: String(f.amount) })));
+        setForm({
+          name: data.name, category: data.category, description: data.description ?? "",
+          minimumQuantity: data.minimumQuantity?.toString() ?? "", pricingType: data.pricingType,
+          shelfLifeDays: data.shelfLifeDays?.toString() ?? "",
+          productionLeadTimeMinDays: data.productionLeadTimeMinDays?.toString() ?? "",
+          productionLeadTimeMaxDays: data.productionLeadTimeMaxDays?.toString() ?? "", active: data.active,
+        });
+        setPrices(data.prices.map(p => ({ id: p.id, key: p.id, minimumQuantity: String(p.minimumQuantity), unitPrice: String(p.unitPrice) })));
+        setFees(data.fees.map(f => ({ ...f, key: f.id, amount: String(f.amount) })));
       } catch (cause) {
         if (!controller.signal.aborted) setError(errorMessage(cause));
       } finally {
@@ -104,74 +78,97 @@ function EditarProdutoContent() {
     return () => controller.abort();
   }, [id]);
 
-  function updateForm<K extends keyof Form>(key: K, value: Form[K]) {
-    setForm((current) => current ? { ...current, [key]: value } : current);
+  function updateForm<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+    setForm(current => ({ ...current, [field]: value }));
   }
-  function updatePrice<K extends keyof PriceForm>(id: string, key: K, value: PriceForm[K]) {
-    setPrices((current) => current.map((row) => row.id === id ? { ...row, [key]: value } : row));
+  function updatePrice(key: string, patch: Partial<Price>) {
+    setPrices(current => current.map(row => row.key === key ? { ...row, ...patch } : row));
   }
-  function updateFee<K extends keyof FeeForm>(id: string, key: K, value: FeeForm[K]) {
-    setFees((current) => current.map((row) => row.id === id ? { ...row, [key]: value } : row));
+  function updateFee(key: string, patch: Partial<Fee>) {
+    setFees(current => current.map(row => row.key === key ? { ...row, ...patch } : row));
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!original || !form || saving) return;
+    if (!original || saving) return;
     setError(null);
-    if (!form.name.trim()) return setError("Informe o nome do produto.");
-    if (form.minimumQuantity && !positiveInteger(form.minimumQuantity)) return setError("A quantidade mínima deve ser um inteiro maior que zero.");
-    if (form.shelfLifeDays && !positiveInteger(form.shelfLifeDays)) return setError("A validade deve ser um inteiro maior que zero.");
-    if (form.productionLeadTimeMinDays && !nonNegativeInteger(form.productionLeadTimeMinDays)) return setError("O prazo mínimo deve ser um inteiro não negativo.");
-    if (form.productionLeadTimeMaxDays && !nonNegativeInteger(form.productionLeadTimeMaxDays)) return setError("O prazo máximo deve ser um inteiro não negativo.");
-    const minDays = optionalNumber(form.productionLeadTimeMinDays);
-    const maxDays = optionalNumber(form.productionLeadTimeMaxDays);
-    if (minDays !== null && maxDays !== null && minDays > maxDays) return setError("O prazo máximo não pode ser inferior ao mínimo.");
-    if (prices.some((p) => !positiveInteger(p.minimumQuantity) || !moneyValid(p.unitPrice))) return setError("Preços exigem quantidade positiva e valor maior que zero, com até duas casas decimais.");
-    if (new Set(prices.map((p) => Number(p.minimumQuantity))).size !== prices.length) return setError("Não repita quantidades mínimas nas faixas de preço.");
-    if (fees.some((f) => !f.name.trim() || !moneyValid(f.amount, true))) return setError("Taxas exigem nome e valor não negativo, com até duas casas decimais.");
-    const quantity = optionalNumber(form.minimumQuantity);
-    if (form.pricingType === "FIXED" && (prices.length !== 1 || quantity === null)) return setError("Preço fixo exige uma faixa e quantidade mínima.");
-    if (form.pricingType === "TIERED" && (prices.length === 0 || quantity === null)) return setError("Preço por quantidade exige faixas e quantidade mínima.");
-    if (form.pricingType === "QUOTE" && prices.length > 0) return setError("Para mudar para sob consulta, é necessário remover as faixas no backend primeiro.");
-    if (form.pricingType !== "QUOTE" && Math.min(...prices.map((p) => Number(p.minimumQuantity))) !== quantity) return setError("A primeira faixa deve corresponder à quantidade mínima do produto.");
-
-    const payload: Record<string, unknown> = {};
-    const fields: (keyof Form)[] = ["name", "category", "description", "minimumQuantity", "pricingType", "shelfLifeDays", "productionLeadTimeMinDays", "productionLeadTimeMaxDays", "active"];
-    const originalForm = toForm(original);
-    for (const key of fields) {
-      if (form[key] === originalForm[key]) continue;
-      if (key === "description") payload[key] = form.description.trim() || null;
-      else if (key === "minimumQuantity" || key === "shelfLifeDays" || key === "productionLeadTimeMinDays" || key === "productionLeadTimeMaxDays") payload[key] = optionalNumber(form[key]);
-      else payload[key] = form[key];
-    }
-    const priceChanges = prices.flatMap((row) => {
-      const previous = original.prices.find((p) => p.id === row.id);
-      if (!previous) return [];
-      const change: Record<string, unknown> = { id: row.id };
-      if (Number(row.minimumQuantity) !== previous.minimumQuantity) change.minimumQuantity = Number(row.minimumQuantity);
-      if (Number(row.unitPrice) !== previous.unitPrice) change.unitPrice = Number(row.unitPrice);
-      return Object.keys(change).length > 1 ? [change] : [];
-    });
-    if (priceChanges.length) payload.prices = priceChanges;
-    const feeChanges = fees.flatMap((row) => {
-      const previous = original.fees.find((f) => f.id === row.id);
-      if (!previous) return [];
-      const change: Record<string, unknown> = { id: row.id };
-      if (row.name.trim() !== previous.name) change.name = row.name.trim();
-      if (Number(row.amount) !== previous.amount) change.amount = Number(row.amount);
-      if (row.chargeType !== previous.chargeType) change.chargeType = row.chargeType;
-      if (row.required !== previous.required) change.required = row.required;
-      if (row.active !== previous.active) change.active = row.active;
-      return Object.keys(change).length > 1 ? [change] : [];
-    });
-    if (feeChanges.length) payload.fees = feeChanges;
-    if (!Object.keys(payload).length) return setError("Nenhuma alteração foi realizada.");
-
-    const token = localStorage.getItem("access_token");
-    if (!token || token === "undefined" || token === "null") return setError("Sessão inválida. Faça login novamente.");
-    setSaving(true);
     try {
-      await api.patch(`/products/${encodeURIComponent(id)}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (!form.name.trim()) throw new Error("Informe o nome do produto.");
+      for (const field of ["minimumQuantity", "shelfLifeDays", "productionLeadTimeMinDays", "productionLeadTimeMaxDays"] as const) {
+        if (form[field] !== "" && (!Number.isInteger(num(form[field])) || num(form[field]) < (field === "productionLeadTimeMinDays" || field === "productionLeadTimeMaxDays" ? 0 : 1))) {
+          throw new Error(`Valor inválido para ${field}.`);
+        }
+      }
+      if (form.productionLeadTimeMinDays !== "" && form.productionLeadTimeMaxDays !== "" && num(form.productionLeadTimeMaxDays) < num(form.productionLeadTimeMinDays)) {
+        throw new Error("O prazo máximo não pode ser inferior ao mínimo.");
+      }
+      if (form.pricingType === "FIXED" && prices.length !== 1) throw new Error("Preço fixo exige exatamente uma faixa.");
+      if (form.pricingType === "TIERED" && prices.length === 0) throw new Error("Preço por faixas exige pelo menos uma faixa.");
+      if (form.pricingType === "QUOTE" && prices.length !== 0) throw new Error("Produtos sob orçamento não devem possuir faixas.");
+      if (form.pricingType !== "QUOTE" && form.minimumQuantity === "") throw new Error("Informe a quantidade mínima do produto.");
+      const quantities = new Set<number>();
+      for (const p of prices) {
+        if (!Number.isInteger(num(p.minimumQuantity)) || num(p.minimumQuantity) <= 0 || p.minimumQuantity.trim() === "") throw new Error("Quantidade da faixa inválida.");
+        if (p.unitPrice.trim() === "" || !Number.isFinite(num(p.unitPrice)) || num(p.unitPrice) <= 0) throw new Error("Preço unitário deve ser maior que zero.");
+        if (quantities.has(num(p.minimumQuantity))) throw new Error("Existem faixas com quantidades mínimas duplicadas.");
+        quantities.add(num(p.minimumQuantity));
+      }
+      if (prices.length && Math.min(...prices.map(p => num(p.minimumQuantity))) !== optionalNumber(form.minimumQuantity)) {
+        throw new Error("A menor faixa deve corresponder à quantidade mínima do produto.");
+      }
+      for (const fee of fees) {
+        if (!fee.name.trim()) throw new Error("Informe o nome da taxa.");
+        if (fee.amount.trim() === "" || !Number.isFinite(num(fee.amount)) || num(fee.amount) < 0) throw new Error("Valor da taxa inválido.");
+      }
+
+      const body: Record<string, unknown> = {};
+      const scalarFields = ["name", "category", "description", "pricingType", "active"] as const;
+      for (const field of scalarFields) {
+        const value = field === "description" ? form.description.trim() || null : form[field];
+        if (value !== original[field]) body[field] = value;
+      }
+      const numberFields = ["minimumQuantity", "shelfLifeDays", "productionLeadTimeMinDays", "productionLeadTimeMaxDays"] as const;
+      for (const field of numberFields) {
+        const value = optionalNumber(form[field]);
+        if (value !== original[field]) body[field] = value;
+      }
+
+      const originalPrices = new Map(original.prices.map(p => [p.id, p]));
+      const originalFees = new Map(original.fees.map(f => [f.id, f]));
+      const updatedPrices = prices.filter(p => p.id).flatMap(p => {
+        const before = originalPrices.get(p.id!);
+        if (!before) return [];
+        const patch: Record<string, unknown> = { id: p.id };
+        if (num(p.minimumQuantity) !== before.minimumQuantity) patch.minimumQuantity = num(p.minimumQuantity);
+        if (num(p.unitPrice) !== Number(before.unitPrice)) patch.unitPrice = num(p.unitPrice);
+        return Object.keys(patch).length > 1 ? [patch] : [];
+      });
+      const addedPrices = prices.filter(p => !p.id).map(p => ({ minimumQuantity: num(p.minimumQuantity), unitPrice: num(p.unitPrice) }));
+      const removedPrices = original.prices.filter(p => !prices.some(row => row.id === p.id)).map(p => p.id);
+      const updatedFees = fees.filter(f => f.id).flatMap(f => {
+        const before = originalFees.get(f.id!);
+        if (!before) return [];
+        const patch: Record<string, unknown> = { id: f.id };
+        if (f.name !== before.name) patch.name = f.name;
+        if (num(f.amount) !== Number(before.amount)) patch.amount = num(f.amount);
+        if (f.chargeType !== before.chargeType) patch.chargeType = f.chargeType;
+        if (f.required !== before.required) patch.required = f.required;
+        if (f.active !== before.active) patch.active = f.active;
+        return Object.keys(patch).length > 1 ? [patch] : [];
+      });
+      const addedFees = fees.filter(f => !f.id).map(f => ({ name: f.name, amount: num(f.amount), chargeType: f.chargeType, required: f.required, active: f.active }));
+      const removedFees = original.fees.filter(f => !fees.some(row => row.id === f.id)).map(f => f.id);
+      if (updatedPrices.length) body.prices = updatedPrices;
+      if (addedPrices.length) body.addPrices = addedPrices;
+      if (removedPrices.length) body.removePriceIds = removedPrices;
+      if (updatedFees.length) body.fees = updatedFees;
+      if (addedFees.length) body.addFees = addedFees;
+      if (removedFees.length) body.removeFeeIds = removedFees;
+      if (!Object.keys(body).length) { router.push(`/produtos/${encodeURIComponent(id)}`); return; }
+      const token = localStorage.getItem("access_token");
+      if (!token) throw new Error("Sessão não encontrada. Faça login novamente.");
+      setSaving(true);
+      await api.patch(`/products/${encodeURIComponent(id)}`, body, { headers: { Authorization: `Bearer ${token}` } });
       router.push(`/produtos/${encodeURIComponent(id)}`);
       router.refresh();
     } catch (cause) {
@@ -181,74 +178,274 @@ function EditarProdutoContent() {
     }
   }
 
-  return <DashboardLayout>
-    <main className="mx-auto w-full max-w-6xl pb-12">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-4xl text-[#302c29]">Editar produto</h1>
-          {original && <p className="mt-2 text-sm text-[#8b8176]">Código {original.code} · {original.name}</p>}
-        </div>
-        <button type="button" onClick={() => router.push(`/produtos/${id}`)} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] bg-white px-4 py-3 text-sm text-[#65584b] hover:bg-[#faf7f2]"><ArrowLeft size={16} /> Voltar ao produto</button>
+  return (
+    <DashboardLayout>
+                <div className="mx-auto max-w-5xl space-y-6">
+                    <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h1 className="font-serif text-4xl text-[#342d27]">
+                Editar produto
+                </h1>
+
+                <p className="mt-2 text-sm text-stone-500">
+                {original && `Código ${original.code} · ${original.name}`}
+                </p>
+            </div>
+
+            <Link
+                href={`/produtos/${encodeURIComponent(id)}`}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#e8d8c5] bg-white px-4 py-3 text-sm font-medium text-[#6b5138] transition-colors hover:bg-[#fdfbf8]"
+            >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar ao produto
+            </Link>
+            </div>
+        {loading ? <p className="text-sm text-stone-500">Carregando produto...</p> : !original ? <p className="text-sm text-red-700">{error ?? "Produto não encontrado."}</p> : (
+         
+          <form onSubmit={save} className="space-y-6">
+            <section className={sectionClass}>
+              <h2 className="text-lg font-semibold text-[#342d27]">Informações gerais</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label><span className={labelClass}>Nome</span><input required maxLength={150} className={inputClass} value={form.name} onChange={e => updateForm("name", e.target.value)} /></label>
+                <label><span className={labelClass}>Categoria</span><select className={inputClass} value={form.category} onChange={e => updateForm("category", e.target.value)}>{Array.from(new Set([form.category, ...categories])).filter(Boolean).map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+                <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><textarea rows={3} className={inputClass} value={form.description} onChange={e => updateForm("description", e.target.value)} /></label>
+                <label>
+                    <span className={labelClass}>Tipo de precificação</span>
+                    <select
+                        className={inputClass}
+                        value={form.pricingType}
+                        onChange={(e) => updateForm("pricingType", e.target.value)}
+                    >
+                        <option value="TIERED">Por quantidade</option>
+                        <option value="FIXED">Preço fixo</option>
+                        <option value="QUOTE">Sob orçamento</option>
+                    </select>
+                    </label>
+                <label><span className={labelClass}>Qtd mínima</span><input type="number" min={1} step={1} className={inputClass} value={form.minimumQuantity} onChange={e => updateForm("minimumQuantity", e.target.value)} /></label>
+                <label><span className={labelClass}>Prazo mínimo de produção (dias)</span><input type="number" min={0} step={1} className={inputClass} value={form.productionLeadTimeMinDays} onChange={e => updateForm("productionLeadTimeMinDays", e.target.value)} /></label>
+                <label><span className={labelClass}>Prazo máximo de produção (dias)</span><input type="number" min={0} step={1} className={inputClass} value={form.productionLeadTimeMaxDays} onChange={e => updateForm("productionLeadTimeMaxDays", e.target.value)} /></label>
+                <label><span className={labelClass}>Validade (dias)</span><input type="number" min={1} step={1} className={inputClass} value={form.shelfLifeDays} onChange={e => updateForm("shelfLifeDays", e.target.value)} /></label>
+                <label className="flex items-center gap-2 pt-6 text-sm text-[#342d27]"><input type="checkbox" checked={form.active} onChange={e => updateForm("active", e.target.checked)} /> Produto ativo</label>
+              </div>
+            </section>
+
+            <section className={sectionClass}>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h2 className="text-lg font-semibold text-[#342d27]">
+                            Faixas de preço
+                            </h2>
+
+                            <button
+                            type="button"
+                            onClick={() =>
+                                setPrices((prev) => [
+                                ...prev,
+                                { key: newKey(), minimumQuantity: "", unitPrice: "" },
+                                ])
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl border border-[#a98a58] px-3 py-2 text-sm font-semibold text-[#927448]"
+                            >
+                            <Plus className="h-4 w-4" />
+                            Adicionar faixa
+                            </button>
+                        </div>
+
+                        {prices.length === 0 && (
+                            <p className="text-sm text-stone-500">
+                            Nenhuma faixa cadastrada.
+                            </p>
+                        )}
+
+                        {prices.map((price) => (
+                            <div
+                            key={price.key}
+                            className="grid gap-3 rounded-xl border border-[#ece6dc] bg-[#fdfbf8] p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                            >
+                            <label>
+                                <span className={labelClass}>Qtd mínima</span>
+                                <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                required
+                                className={inputClass}
+                                value={price.minimumQuantity}
+                                onChange={(e) =>
+                                    updatePrice(price.key, {
+                                    minimumQuantity: e.target.value,
+                                    })
+                                }
+                                />
+                            </label>
+
+                            <label>
+                                <span className={labelClass}>Preço unitário (R$)</span>
+                                <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                required
+                                className={inputClass}
+                                value={price.unitPrice}
+                                onChange={(e) =>
+                                    updatePrice(price.key, {
+                                    unitPrice: e.target.value,
+                                    })
+                                }
+                                />
+                            </label>
+
+                            <button
+                                type="button"
+                                title="Excluir faixa"
+                                aria-label="Excluir faixa"
+                                onClick={() =>
+                                setPrices((prev) =>
+                                    prev.filter((item) => item.key !== price.key)
+                                )
+                                }
+                                className="rounded-xl border border-red-200 p-2.5 text-red-600 hover:bg-red-50"
+                            >
+                                <Trash2 className="h-5 w-5" />
+                            </button>
+                            </div>
+                        ))}
+                        </section>
+
+            <section className={sectionClass}>
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-lg font-semibold text-[#342d27]">
+      Taxas adicionais
+    </h2>
+
+    <button
+      type="button"
+      onClick={() =>
+        setFees((prev) => [
+          ...prev,
+          {
+            key: newKey(),
+            name: "",
+            amount: "",
+            chargeType: "FIXED",
+            required: false,
+            active: true,
+          },
+        ])
+      }
+      className="inline-flex items-center gap-2 rounded-xl border border-[#a98a58] px-3 py-2 text-sm font-semibold text-[#927448]"
+    >
+      <Plus className="h-4 w-4" />
+      Adicionar taxa
+    </button>
+  </div>
+
+  {fees.length === 0 && (
+    <p className="text-sm text-stone-500">
+      Nenhuma taxa cadastrada.
+    </p>
+  )}
+
+  {fees.map((fee) => (
+    <div
+      key={fee.key}
+      className="space-y-3 rounded-xl border border-[#ece6dc] bg-[#fdfbf8] p-4"
+    >
+      <div className="flex justify-end">
+        <button
+          type="button"
+          title="Excluir taxa"
+          aria-label="Excluir taxa"
+          onClick={() =>
+            setFees((prev) =>
+              prev.filter((item) => item.key !== fee.key)
+            )
+          }
+          className="rounded-xl border border-red-200 p-2 text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
-      {loading ? <div className={sectionClass}>Carregando dados do produto...</div> : !form || !original ?
-        <div role="alert" className={sectionClass}>{error ?? "Produto não encontrado."}</div> :
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-          <section className={sectionClass}>
-            <h2 className="mb-5 font-serif text-xl text-[#302c29]">Informações do produto</h2>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              <Field label="Código (não editável)"><input className={`${inputClass} bg-[#f5f1eb]`} value={original.code} readOnly /></Field>
-              <div className="lg:col-span-2"><Field label="Nome do produto"><input className={inputClass} maxLength={150} value={form.name} onChange={(e) => updateForm("name", e.target.value)} /></Field></div>
-              <Field label="Categoria"><select className={inputClass} value={form.category} onChange={(e) => updateForm("category", e.target.value as Category)}>{Object.entries(categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-              <Field label="Tipo de precificação"><select className={inputClass} value={form.pricingType} onChange={(e) => updateForm("pricingType", e.target.value as PricingType)}>{Object.entries(pricingTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-              <Field label="Quantidade mínima"><input className={inputClass} type="number" min="1" step="1" value={form.minimumQuantity} onChange={(e) => updateForm("minimumQuantity", e.target.value)} /></Field>
-              <div className="md:col-span-2 lg:col-span-3"><Field label="Descrição"><textarea className={`${inputClass} min-h-28 resize-y`} value={form.description} onChange={(e) => updateForm("description", e.target.value)} /></Field></div>
-            </div>
-            <label className="mt-5 inline-flex items-center gap-2.5 text-sm text-[#51483f]"><input type="checkbox" checked={form.active} onChange={(e) => updateForm("active", e.target.checked)} className="h-4 w-4 accent-[#a98a58]" /> Produto ativo</label>
-          </section>
-          <section className={sectionClass}>
-            <h2 className="mb-5 font-serif text-xl text-[#302c29]">Produção e validade</h2>
-            <div className="grid gap-5 md:grid-cols-3">
-              <Field label="Validade (dias)"><input className={inputClass} type="number" min="1" step="1" value={form.shelfLifeDays} onChange={(e) => updateForm("shelfLifeDays", e.target.value)} /></Field>
-              <Field label="Produção mínima (dias)"><input className={inputClass} type="number" min="0" step="1" value={form.productionLeadTimeMinDays} onChange={(e) => updateForm("productionLeadTimeMinDays", e.target.value)} /></Field>
-              <Field label="Produção máxima (dias)"><input className={inputClass} type="number" min="0" step="1" value={form.productionLeadTimeMaxDays} onChange={(e) => updateForm("productionLeadTimeMaxDays", e.target.value)} /></Field>
-            </div>
-          </section>
-          <section className={sectionClass}>
-            <h2 className="mb-2 font-serif text-xl text-[#302c29]">Faixas de preço</h2>
-            <p className="mb-5 text-sm text-[#8b8176]">Altere qualquer quantidade ou preço individualmente.</p>
-            {prices.length === 0 ? <p className="text-sm text-stone-500">Nenhuma faixa cadastrada.</p> : <div className="space-y-3">{prices.map((price) => <div key={price.id} className="grid gap-4 rounded-xl bg-[#faf8f5] p-4 sm:grid-cols-2">
-              <Field label="Quantidade mínima"><input className={inputClass} type="number" min="1" step="1" value={price.minimumQuantity} onChange={(e) => updatePrice(price.id, "minimumQuantity", e.target.value)} /></Field>
-              <Field label="Preço unitário (R$)"><input className={inputClass} type="number" min="0.01" step="0.01" value={price.unitPrice} onChange={(e) => updatePrice(price.id, "unitPrice", e.target.value)} /></Field>
-            </div>)}</div>}
-          </section>
-          <section className={sectionClass}>
-            <h2 className="mb-5 font-serif text-xl text-[#302c29]">Taxas adicionais</h2>
-            {fees.length === 0 ? <p className="text-sm text-stone-500">Nenhuma taxa cadastrada.</p> : <div className="space-y-4">{fees.map((fee) => <div key={fee.id} className="rounded-xl border border-[#eee6dd] bg-[#faf8f5] p-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Field label="Nome da taxa"><input className={inputClass} maxLength={100} value={fee.name} onChange={(e) => updateFee(fee.id, "name", e.target.value)} /></Field>
-                <Field label="Valor (R$)"><input className={inputClass} type="number" min="0" step="0.01" value={fee.amount} onChange={(e) => updateFee(fee.id, "amount", e.target.value)} /></Field>
-                <Field label="Cobrança"><select className={inputClass} value={fee.chargeType} onChange={(e) => updateFee(fee.id, "chargeType", e.target.value as ChargeType)}>{Object.entries(chargeTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-6">
-                <label className="inline-flex items-center gap-2 text-sm text-[#51483f]"><input type="checkbox" checked={fee.required} onChange={(e) => updateFee(fee.id, "required", e.target.checked)} className="accent-[#a98a58]" /> Taxa obrigatória</label>
-                <label className="inline-flex items-center gap-2 text-sm text-[#51483f]"><input type="checkbox" checked={fee.active} onChange={(e) => updateFee(fee.id, "active", e.target.checked)} className="accent-[#a98a58]" /> Taxa ativa</label>
-              </div>
-            </div>)}</div>}
-          </section>
-          {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div>}
-          <div className="flex flex-wrap justify-end gap-3">
-            <button type="button" disabled={saving} onClick={() => router.push(`/produtos/${id}`)} className="rounded-xl border border-[#e2d7c9] bg-white px-6 py-3 text-sm text-[#65584b] disabled:opacity-60">Cancelar</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white hover:bg-[#927448] disabled:opacity-60"><Save size={17} /> {saving ? "Salvando..." : "Salvar alterações"}</button>
-          </div>
-        </form>}
-    </main>
-  </DashboardLayout>;
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label>
+          <span className={labelClass}>Nome</span>
+          <input
+            required
+            className={inputClass}
+            value={fee.name}
+            onChange={(e) =>
+              updateFee(fee.key, { name: e.target.value })
+            }
+          />
+        </label>
+
+        <label>
+          <span className={labelClass}>Valor</span>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            required
+            className={inputClass}
+            value={fee.amount}
+            onChange={(e) =>
+              updateFee(fee.key, { amount: e.target.value })
+            }
+          />
+        </label>
+
+        <label>
+          <span className={labelClass}>Tipo de cobrança</span>
+          <select
+            className={inputClass}
+            value={fee.chargeType}
+            onChange={(e) =>
+              updateFee(fee.key, { chargeType: e.target.value })
+            }
+          >
+            <option value="FIXED">Valor fixo</option>
+            <option value="PERCENTAGE">Percentual</option>
+            <option value="PER_UNIT">Por unidade</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-6">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={fee.required}
+            onChange={(e) =>
+              updateFee(fee.key, { required: e.target.checked })
+            }
+          />
+          Obrigatória
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={fee.active}
+            onChange={(e) =>
+              updateFee(fee.key, { active: e.target.checked })
+            }
+          />
+          Ativa
+        </label>
+      </div>
+    </div>
+  ))}
+</section>
+            {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+            <div className="flex justify-end gap-3"><Link href={`/produtos/${encodeURIComponent(id)}`} className="rounded-xl border border-[#e8e1d7] px-5 py-3 text-sm font-semibold text-[#342d27]">Cancelar</Link><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? "Salvando..." : "Salvar alterações"}</button></div>
+          </form>
+        )}
+      </div>
+    </DashboardLayout>
+  );
 }
 
-export default function EditarProdutoPage() {
-  return (
-    <Suspense fallback={null}>
-      <EditarProdutoContent />
-    </Suspense>
-  );
+export default function EditProductPage() {
+  return <Suspense fallback={<p className="p-6 text-sm text-stone-500">Carregando...</p>}><EditProductContent /></Suspense>;
 }

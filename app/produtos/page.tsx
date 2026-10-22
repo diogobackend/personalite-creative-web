@@ -10,7 +10,7 @@ import {
 
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, Filter,
 
-  Package, Plus, RefreshCw, Search, SlidersHorizontal, X,
+  Package, Plus, RefreshCw, Search, SlidersHorizontal, X, Pencil,
 
 } from "lucide-react";
 
@@ -517,8 +517,27 @@ export default function ProductsPageScreen() {
                       <td className="px-4 py-4 text-sm text-stone-600">{categories[product.category] || product.category}</td>
                       <td className="px-4 py-4 text-sm font-semibold">{lowestPrice == null ? "Sob consulta" : currency.format(lowestPrice)}</td>
                       <td className="px-4 py-4 text-sm text-stone-600">{product.minimumQuantity ?? "—"}</td>
-                      <td className="px-6 py-4 text-right"><Link href={`/produtos/${product.id}`} aria-label={`Visualizar produto ${product.name}`} title="Visualizar produto" className="inline-flex items-center justify-center rounded-lg p-2 text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"><Eye className="h-5 w-5" /></Link></td>
+                      <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/produtos/${product.id}`}
+                          aria-label={`Visualizar produto ${product.name}`}
+                          title="Visualizar produto"
+                          className="inline-flex items-center justify-center rounded-lg p-2 text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </Link>
 
+                        <Link
+                          href={`/produtos/${product.id}/editar`}
+                          aria-label={`Editar produto ${product.name}`}
+                          title="Editar produto"
+                          className="inline-flex items-center justify-center rounded-lg p-2 text-[#a98a58] transition-colors hover:bg-[#f7f0e6] hover:text-[#927448]"
+                        >
+                          <Pencil className="h-5 w-5" />
+                        </Link>
+                      </div>
+                    </td>
                     </tr>
 
                   );
