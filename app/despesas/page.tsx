@@ -853,7 +853,7 @@ export default function ExpensesPageScreen() {
                   <th className="px-5 py-4">Alocação</th>
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Data da despesa</th>
-                  <th className="px-5 py-4 text-center">Ações</th>
+                  <th className="px-5 py-4 text-center">Visualizar / Editar</th>
                 </tr>
               </thead>
 
