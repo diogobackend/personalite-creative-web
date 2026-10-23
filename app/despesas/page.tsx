@@ -138,7 +138,7 @@ const ALLOCATION_OPTIONS: {
 }[] = [
   { value: "GENERAL", label: "Geral" },
   { value: "SPECIFIC_PRODUCT", label: "Produto específico" },
-  { value: "CATEGORY_PRODUCTS", label: "Produtos da categoria" },
+  { value: "CATEGORY_PRODUCTS", label: "Diversos produtos por categoria" },
 ];
 
 const STATUS_OPTIONS: { value: ExpenseStatus; label: string }[] = [
@@ -192,9 +192,31 @@ const categoryLabel = (category: ExpenseCategory) =>
   CATEGORY_OPTIONS.find((option) => option.value === category)?.label ??
   category;
 
-const allocationLabel = (allocation: ExpenseAllocationType) =>
-  ALLOCATION_OPTIONS.find((option) => option.value === allocation)?.label ??
-  allocation;
+type ProductCategory = string | { name?: string; label?: string } | null;
+
+type ProductSummary = {
+  id: string;
+  category?: ProductCategory;
+};
+
+const productCategoryLabel = (category?: ProductCategory): string | null => {
+  if (!category) return null;
+  if (typeof category === "string") return category;
+  return category.name ?? category.label ?? null;
+};
+
+const allocationLabel = (
+  expense: Expense,
+  productCategories: Record<string, string>,
+) => {
+  if (expense.allocationType === "GENERAL") return "Gerais";
+
+  const categories = expense.products
+    .map((product) => productCategories[product.productId])
+    .filter((category): category is string => Boolean(category));
+
+  return categories[0] ?? "Categoria não identificada";
+};
 
 function StatusLabel({ status }: { status: ExpenseStatus }) {
   const styles: Record<ExpenseStatus, string> = {
@@ -278,6 +300,7 @@ export default function ExpensesPageScreen() {
   const [sortDirection, setSortDirection] = useState("DESC");
 
   const [result, setResult] = useState<ExpensesPage | null>(null);
+  const [productCategories, setProductCategories] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -338,6 +361,54 @@ export default function ExpensesPageScreen() {
         if (signal.aborted) return;
 
         setResult(response.data);
+
+        const productIds = new Set(
+          response.data.content.flatMap((expense) =>
+            expense.allocationType === "GENERAL"
+              ? []
+              : expense.products.map((product) => product.productId),
+          ),
+        );
+
+        if (productIds.size > 0) {
+          try {
+            const categories: Record<string, string> = {};
+            let productPage = 0;
+            let totalProductPages = 1;
+
+            while (productPage < totalProductPages && productIds.size > 0) {
+              const productsResponse = await api.get<{
+                content: ProductSummary[];
+                totalPages: number;
+              }>("/products", {
+                params: { page: productPage, size: 100 },
+                signal,
+                headers: token
+                  ? { Authorization: `Bearer ${token}` }
+                  : undefined,
+              });
+
+              if (signal.aborted) return;
+
+              for (const product of productsResponse.data.content) {
+                if (!productIds.has(product.id)) continue;
+                const category = productCategoryLabel(product.category);
+                if (category) categories[product.id] = category;
+                productIds.delete(product.id);
+              }
+
+              totalProductPages = productsResponse.data.totalPages;
+              productPage += 1;
+            }
+
+            if (!signal.aborted) setProductCategories(categories);
+          } catch (productError) {
+            if (signal.aborted || axios.isCancel(productError)) return;
+            setProductCategories({});
+          }
+        } else {
+          setProductCategories({});
+        }
       } catch (exception) {
         if (signal.aborted || axios.isCancel(exception)) return;
 
@@ -395,7 +466,7 @@ export default function ExpensesPageScreen() {
           </div>
 
           <Link
-            href="/despesas/novo"
+            href="/despesas/nova"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#927448]"
           >
             <Plus size={18} />
@@ -406,13 +477,6 @@ export default function ExpensesPageScreen() {
         <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
           <div className="p-5 sm:p-6">
             
-              {hasActiveFilters && (
-                <span className="rounded-full bg-[#f4ede2] px-3 py-1 text-xs font-medium text-[#927448]">
-                  Filtros ativos
-                </span>
-              )}
-            
-
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -826,11 +890,6 @@ export default function ExpensesPageScreen() {
                           {expense.name}
                         </Link>
 
-                        {expense.description && (
-                          <p className="mt-1 max-w-[260px] truncate text-xs text-[#81766b]">
-                            {expense.description}
-                          </p>
-                        )}
                       </td>
 
                       <td className="px-5 py-4 text-sm text-[#51473d]">
@@ -842,7 +901,7 @@ export default function ExpensesPageScreen() {
                       </td>
 
                       <td className="px-5 py-4 text-sm text-[#51473d]">
-                        {allocationLabel(expense.allocationType)}
+                        {allocationLabel(expense, productCategories)}
                       </td>
 
                       <td className="px-5 py-4">
