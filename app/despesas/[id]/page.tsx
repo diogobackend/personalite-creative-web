@@ -4,11 +4,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
+import Link from "next/link";
 import { api } from "../../../src/lib/api";
+import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 import {
   ArrowLeft,
   CalendarDays,
-  CreditCard,
   FileText,
   Layers3,
   Package,
@@ -79,8 +80,8 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 
 const ALLOCATION_LABELS: Record<ExpenseAllocationType, string> = {
   GENERAL: "Geral",
-  SPECIFIC_PRODUCT: "Um único produto",
-  CATEGORY_PRODUCTS: "Diversos produtos de uma categoria",
+  SPECIFIC_PRODUCT: "Produto",
+  CATEGORY_PRODUCTS: "Categoria de produtos",
 };
 
 const STATUS_LABELS: Record<ExpenseStatus, string> = {
@@ -302,7 +303,7 @@ function ExpenseDetailsContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#faf8f5] px-4 py-8 sm:px-8">
+    <main className="bg-[#faf8f5] px-2 py-5 sm:px-4">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -331,10 +332,6 @@ function ExpenseDetailsContent() {
         <div className="rounded-2xl border border-[#e8dfd2] bg-[#f4ede2] p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#927448]">
-                Despesa
-              </p>
-
               <h2 className="mt-2 text-xl font-bold text-[#342d27]">
                 {expense.name}
               </h2>
@@ -367,16 +364,12 @@ function ExpenseDetailsContent() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Section title="Informações gerais" icon={FileText}>
             <div className="grid gap-6 sm:grid-cols-2">
-              
-
-            
-
               <DetailField
                 label="Quantidade"
                 value={
                   expense.category === "STOCK"
                     ? (expense.quantity ?? "—")
-                    : "Não se aplica"
+                    : "N/A"
                 }
               />
 
@@ -411,13 +404,8 @@ function ExpenseDetailsContent() {
           </Section>
         </div>
 
-        <Section title="Alocação da despesa" icon={Layers3}>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <DetailField
-              label="Tipo de alocação"
-              value={ALLOCATION_LABELS[expense.allocationType]}
-            />
-          </div>
+        <Section title="Alocação" icon={Layers3}>
+          
 
           {expense.allocationType === "GENERAL" && (
             <div className="mt-6 rounded-xl bg-[#faf8f5] p-4">
@@ -442,20 +430,23 @@ function ExpenseDetailsContent() {
               </div>
 
               <div className="overflow-hidden rounded-xl border border-[#eee8df]">
-               
+                <div className="grid grid-cols-[1fr_auto] gap-4 bg-[#faf8f5] px-5 py-4 text-xs font-semibold uppercase tracking-wide text-[#81766b]">
+                  <span>Produto</span>
+                  <span>Valor alocado</span>
+                </div>
 
                 {expense.products?.map((item) => (
                   <div
                     key={item.productId}
                     className="grid grid-cols-[1fr_auto] items-center gap-4 border-t border-[#eee8df] px-5 py-4"
                   >
-                    <div>
-                      <p className="text-sm font-semibold text-[#342d27]">
-                        {products[item.productId]?.name ??
-                          `Produto ${item.productId}`}
-                      </p>
-
-                    </div>
+                    
+                      <Link
+                        href={`/produtos/${encodeURIComponent(item.productId)}`}
+                        className="text-sm font-semibold text-[#342d27] hover:text-[#a98a58] hover:underline"
+                        >
+                        {products[item.productId]?.name ?? `Produto ${item.productId}`}
+                        </Link>
 
                     <p className="text-sm font-semibold text-[#342d27]">
                       {formatCurrency(item.allocatedValue)}
@@ -473,6 +464,7 @@ function ExpenseDetailsContent() {
 
 export default function ExpenseDetailsPage() {
   return (
+    <DashboardLayout>
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8f5]">
@@ -484,5 +476,6 @@ export default function ExpenseDetailsPage() {
     >
       <ExpenseDetailsContent />
     </Suspense>
+    </DashboardLayout>
   );
 }
