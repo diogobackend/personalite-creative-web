@@ -366,13 +366,20 @@ function ProductDetailsContent() {
                     <th className="px-4 py-3">Valor</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Data da despesa</th>
-                    <th className="px-4 py-3 text-right">Ações</th>
+                    <th className="px-4 py-3 text-right">Visualizar / Editar</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f0ece5]">
                   {filteredExpenses.map((expense) => (
                     <tr key={expense.id}>
-                      <td className="px-4 py-4 font-medium text-[#342d27]">{expense.name}</td>
+                      <td className="px-4 py-4 font-medium">
+                      <Link
+                        href={`/despesas/${encodeURIComponent(expense.id)}`}
+                        className="text-[#342d27] hover:text-[#a98a58] hover:underline"
+                      >
+                        {expense.name}
+                      </Link>
+                    </td>
                       <td className="px-4 py-4 font-semibold text-[#342d27]">{currency.format(expense.allocatedValue)}</td>
                       <td className="px-4 py-4"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${expenseStatusClasses[expense.status] ?? "bg-stone-100 text-stone-600"}`}>{expenseStatusLabels[expense.status] ?? expense.status}</span></td>
                       <td className="px-4 py-4 text-[#51473d]">{expenseDate(expense.expenseDate)}</td>
