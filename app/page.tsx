@@ -127,7 +127,7 @@ export default function HomePage() {
               </p>
 
               <h1 className="mt-2 font-serif text-3xl sm:text-4xl">
-                Visão geral
+              CAUA FEIO DEMAIS 676767
               </h1>
 
               <p className="mt-2 text-sm text-stone-500">
