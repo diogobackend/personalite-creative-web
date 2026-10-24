@@ -387,7 +387,7 @@ function ProductDetailsContent() {
                     </tr>
                   ))}
                   {filteredExpenses.length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Nenhuma despesa encontrada para este produto com os filtros selecionados.</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Nenhuma despesa encontrada</td></tr>
                   )}
                 </tbody>
               </table>
