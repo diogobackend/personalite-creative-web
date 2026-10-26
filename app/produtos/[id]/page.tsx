@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import axios from "axios";
-import { ArrowLeft, Package, Pencil, RefreshCw, Eye } from "lucide-react";
+import { ArrowLeft, Package, Pencil, Plus , Eye } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 import { api } from "../../../src/lib/api";
 
@@ -321,93 +321,199 @@ function ProductDetailsContent() {
           </div> : <p className="rounded-xl border border-[#eee8df] bg-[#fdfcfb] p-4 text-sm text-stone-500">Nenhuma taxa adicional cadastrada.</p>}
         </Section>
 
-        <div className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
-        <Section title={`Histórico de despesas (${filteredExpenses.length})`}>
-          <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block text-xs font-semibold text-stone-600 sm:col-span-2 lg:col-span-4">
-              Nome
-              <input type="text" value={expenseName} onChange={(event) => setExpenseName(event.target.value)} placeholder="Buscar pelo nome da despesa"
-                className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Data da despesa — de
-              <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Data da despesa — até
-              <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Valor alocado mínimo (R$)
-              <input type="number" min="0" step="0.01" value={valueFrom} onChange={(event) => setValueFrom(event.target.value)} placeholder="0,00"
-                className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Valor alocado máximo (R$)
-              <input type="number" min="0" step="0.01" value={valueTo} onChange={(event) => setValueTo(event.target.value)} placeholder="0,00"
-                className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-          </div>
-          {expensesLoading ? (
-            <p className="rounded-xl border border-[#eee8df] p-5 text-sm text-stone-500">Carregando despesas...</p>
-          ) : expensesError ? (
-            <div className="rounded-xl border border-red-100 p-5 text-sm text-red-700">
-              {expensesError}
-              <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="ml-3 font-semibold underline">Tentar novamente</button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
-              <table className="w-full min-w-[700px] text-left text-sm">
-                <thead className="bg-[#faf9f7] text-xs text-stone-500">
-                  <tr>
-                    <th className="px-4 py-3">Despesa</th>
-                    <th className="px-4 py-3">Valor</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Data da despesa</th>
-                    <th className="px-4 py-3 text-right">Visualizar / Editar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f0ece5]">
-                  {filteredExpenses.map((expense) => (
-                    <tr key={expense.id}>
-                      <td className="px-4 py-4 font-medium">
-                      <Link
-                        href={`/despesas/${encodeURIComponent(expense.id)}`}
-                        className="text-[#342d27] hover:text-[#a98a58] hover:underline"
-                      >
-                        {expense.name}
-                      </Link>
-                    </td>
-                      <td className="px-4 py-4 font-semibold text-[#342d27]">{currency.format(expense.allocatedValue)}</td>
-                      <td className="px-4 py-4"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${expenseStatusClasses[expense.status] ?? "bg-stone-100 text-stone-600"}`}>{expenseStatusLabels[expense.status] ?? expense.status}</span></td>
-                      <td className="px-4 py-4 text-[#51473d]">{expenseDate(expense.expenseDate)}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link href={`/despesas/${encodeURIComponent(expense.id)}`} title="Visualizar despesa" aria-label="Visualizar despesa"
-                            className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Eye size={17} /></Link>
-                          <Link href={`/despesas/${encodeURIComponent(expense.id)}/editar`} title="Editar despesa" aria-label="Editar despesa"
-                            className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Pencil size={17} /></Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredExpenses.length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Nenhuma despesa encontrada</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {!expensesLoading && !expensesError && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6d7c2] bg-[#efe4d4] px-5 py-4">
-              <span className="text-sm font-semibold text-[#51473d]">Total das despesas </span>
-              <span className="text-xl font-bold text-[#342d27]">{currency.format(totalFilteredExpenses)}</span>
-            </div>
-          )}
-        </Section>
-        </div>
+        
+<div className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
+  <section>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h3 className="text-sm font-semibold text-[#342d27]">
+        Histórico de despesas ({filteredExpenses.length})
+      </h3>
+
+      <Link
+        href="/despesas/nova"
+        className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448]"
+      >
+        <Plus className="h-4 w-4" />
+        Nova despesa
+      </Link>
+    </div>
+
+    <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <label className="block text-xs font-semibold text-stone-600 sm:col-span-2 lg:col-span-4">
+        Nome
+        <input
+          type="text"
+          value={expenseName}
+          onChange={(event) => setExpenseName(event.target.value)}
+          placeholder="Buscar pelo nome da despesa"
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]"
+        />
+      </label>
+
+      <label className="block text-xs font-semibold text-stone-600">
+        Data da despesa — de
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]"
+        />
+      </label>
+
+      <label className="block text-xs font-semibold text-stone-600">
+        Data da despesa — até
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]"
+        />
+      </label>
+
+      <label className="block text-xs font-semibold text-stone-600">
+        Valor alocado mínimo (R$)
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={valueFrom}
+          onChange={(event) => setValueFrom(event.target.value)}
+          placeholder="0,00"
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]"
+        />
+      </label>
+
+      <label className="block text-xs font-semibold text-stone-600">
+        Valor alocado máximo (R$)
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={valueTo}
+          onChange={(event) => setValueTo(event.target.value)}
+          placeholder="0,00"
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]"
+        />
+      </label>
+    </div>
+
+    {expensesLoading ? (
+      <p className="rounded-xl border border-[#eee8df] p-5 text-sm text-stone-500">
+        Carregando despesas...
+      </p>
+    ) : expensesError ? (
+      <div className="rounded-xl border border-red-100 p-5 text-sm text-red-700">
+        {expensesError}
+        <button
+          type="button"
+          onClick={() => setReloadKey((key) => key + 1)}
+          className="ml-3 font-semibold underline"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    ) : (
+      <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead className="bg-[#faf9f7] text-xs text-stone-500">
+            <tr>
+              <th className="px-4 py-3">Despesa</th>
+              <th className="px-4 py-3">Valor</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Data da despesa</th>
+              <th className="px-4 py-3 text-right">
+                Visualizar / Editar
+              </th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-[#f0ece5]">
+            {filteredExpenses.map((expense) => (
+              <tr
+                key={expense.id}
+                className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
+              >
+                <td className="px-4 py-4 font-medium">
+                  <Link
+                    href={`/despesas/${encodeURIComponent(expense.id)}`}
+                    className="text-[#342d27] hover:text-[#a98a58] hover:underline"
+                  >
+                    {expense.name}
+                  </Link>
+                </td>
+
+                <td className="px-4 py-4 font-semibold text-[#342d27]">
+                  {currency.format(expense.allocatedValue)}
+                </td>
+
+                <td className="px-4 py-4">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      expenseStatusClasses[expense.status] ??
+                      "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {expenseStatusLabels[expense.status] ?? expense.status}
+                  </span>
+                </td>
+
+                <td className="px-4 py-4 text-[#51473d]">
+                  {expenseDate(expense.expenseDate)}
+                </td>
+
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/despesas/${encodeURIComponent(expense.id)}`}
+                      title="Visualizar despesa"
+                      aria-label="Visualizar despesa"
+                      className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"
+                    >
+                      <Eye size={17} />
+                    </Link>
+
+                    <Link
+                      href={`/despesas/${encodeURIComponent(expense.id)}/editar`}
+                      title="Editar despesa"
+                      aria-label="Editar despesa"
+                      className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"
+                    >
+                      <Pencil size={17} />
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+
+            {filteredExpenses.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-4 py-10 text-center text-sm text-stone-500"
+                >
+                  Nenhuma despesa encontrada
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {!expensesLoading && !expensesError && (
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6d7c2] bg-[#efe4d4] px-5 py-4">
+        <span className="text-sm font-semibold text-[#51473d]">
+          Total das despesas
+        </span>
+
+        <span className="text-xl font-bold text-[#342d27]">
+          {currency.format(totalFilteredExpenses)}
+        </span>
+      </div>
+    )}
+  </section>
+</div>
+
       </div> : null}
     </div>
   </DashboardLayout>;
