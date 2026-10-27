@@ -368,11 +368,13 @@ export default function EstoquePage() {
                         </td>
                         <td className="px-5 py-4 text-sm font-medium text-[#927448]">{item.sku || "—"}</td>
                         <td className="px-5 py-4 text-sm text-[#51473d]">{getLabel(item.category, CATEGORY_OPTIONS)}</td>
-                        <td className="px-5 py-4">
-                          <span className={`text-sm font-semibold ${lowStock ? "text-red-700" : "text-[#342d27]"}`}>{item.quantity}</span>
-                          {lowStock && <span className="ml-2 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Estoque baixo</span>}
-                          {item.minimumQuantity !== null && <p className="mt-1 text-xs text-[#81766b]">Mín.: {item.minimumQuantity}</p>}
-                        </td>
+                        <td
+                            className={`px-5 py-4 text-sm font-semibold ${
+                                lowStock ? "text-red-700" : "text-[#342d27]"
+                            }`}
+                            >
+                            {item.quantity}
+                            </td>
                         <td className="px-5 py-4 text-sm text-[#51473d]">{getLabel(item.unit, UNIT_OPTIONS)}</td>
                         <td className="px-5 py-4 text-sm text-[#51473d]">{formatDate(item.createdAt)}</td>
                         <td className="px-5 py-4">
