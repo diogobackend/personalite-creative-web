@@ -678,20 +678,9 @@ export default function NovoEstoquePage() {
                   type="text"
                   maxLength={255}
                   value={form.sku}
-                  readOnly={productChoice === "YES"}
-                  onChange={(event) =>
-                    updateForm("sku", event.target.value)
-                  }
-                  placeholder={
-                    productChoice === "YES"
-                      ? "Preenchido pelo produto"
-                      : "Ex.: CAM-BRA-M"
-                  }
-                  className={`${INPUT_CLASS} ${
-                    productChoice === "YES"
-                      ? "cursor-not-allowed bg-[#f8f5f0] text-[#81766b]"
-                      : ""
-                  }`}
+                  onChange={(event) => updateForm("sku", event.target.value)}
+                  placeholder="Ex.: CAM-BRA-M"
+                  className={INPUT_CLASS}
                 />
               </Field>
 
