@@ -310,7 +310,7 @@ function EditarEstoqueContent() {
           <h1 className="mt-4 font-serif text-3xl text-[#342d27] sm:text-4xl">
             Editar item
           </h1>
-          <span> SKU: {inventory.sku ?? "Não informado"} </span>
+          <span>SKU: {inventory?.sku ?? "Não informado"}</span>
         </div>
 
         {loading ? (
