@@ -47,6 +47,12 @@ type Product = {
   category?: string;
 };
 
+type InventoryItem = {
+  id: string;
+  name: string;
+  sku?: string | null;
+};
+
 type ProductAllocation = {
   productId: string;
   allocatedValue: string;
@@ -60,6 +66,7 @@ type ExpenseForm = {
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: string;
+  inventoryId: string;
   expenseDate: string;
   isToday: boolean;
   products: ProductAllocation[];
@@ -76,7 +83,7 @@ const CATEGORY_OPTIONS: {
   { value: "MARKETING", label: "Marketing" },
   { value: "PACKAGING", label: "Embalagens" },
   { value: "EQUIPMENT", label: "Equipamentos" },
-  { value: "STOCK", label: "Estoque" },
+  { value: "STOCK", label: "Compra de item no Estoque" },
   { value: "OTHER", label: "Outros" },
 ];
 
@@ -175,6 +182,67 @@ function Field({
   );
 }
 
+function InventorySearchSelect({
+  items,
+  value,
+  onChange,
+}: {
+  items: InventoryItem[];
+  value: string;
+  onChange: (inventoryId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = items.find((item) => item.id === value);
+  const query = search.toLocaleLowerCase("pt-BR");
+  const filtered = items.filter((item) =>
+    item.name.toLocaleLowerCase("pt-BR").includes(query) ||
+    (item.sku ?? "").toLocaleLowerCase("pt-BR").includes(query),
+  );
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? search : selected?.name ?? ""}
+        placeholder="Digite o nome ou SKU do item..."
+        onFocus={() => { setSearch(""); setOpen(true); }}
+        onChange={(event) => {
+          setSearch(event.target.value);
+          setOpen(true);
+          if (value) onChange("");
+        }}
+        onBlur={() => setOpen(false)}
+        className={INPUT_CLASS}
+        autoComplete="off"
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-[#e8e0d4] bg-white shadow-lg">
+          {filtered.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-[#81766b]">Nenhum item encontrado.</p>
+          ) : (
+            filtered.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onChange(item.id);
+                  setSearch("");
+                  setOpen(false);
+                }}
+                className="block w-full px-4 py-3 text-left text-sm text-[#342d27] transition hover:bg-[#f4ede2]"
+              >
+                {item.name}{item.sku ? ` — ${item.sku}` : ""}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductSearchSelect({
   products,
   value,
@@ -251,6 +319,7 @@ export default function NewExpensePage() {
     allocationType: "GENERAL",
     status: "PAID",
     quantity: "",
+    inventoryId: "",
     expenseDate: "",
     isToday: true,
     products: [],
@@ -258,6 +327,8 @@ export default function NewExpensePage() {
 
   const [selectedProductCategory, setSelectedProductCategory] = useState("");
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -286,7 +357,9 @@ export default function NewExpensePage() {
         const response = await api.get("/products", {
           params: {
             page: 0,
-            size: 100,
+            pageSize: 100,
+            sortBy: "name",
+            sortDirection: "ASC",
           },
           signal: controller.signal,
           headers: token
@@ -320,6 +393,38 @@ export default function NewExpensePage() {
 
     return () => controller.abort();
   }, [form.allocationType]);
+
+  useEffect(() => {
+    if (form.category !== "STOCK") return;
+
+    const controller = new AbortController();
+    async function loadInventory() {
+      setLoadingInventory(true);
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get("/inventory", {
+          params: {
+            page: 0,
+            pageSize: 100,
+            sortBy: "name",
+            sortDirection: "ASC",
+          },
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (controller.signal.aborted) return;
+        const items = response.data?.content ?? response.data;
+        setInventoryItems(Array.isArray(items) ? items : []);
+      } catch (exception) {
+        if (controller.signal.aborted || axios.isCancel(exception)) return;
+        setError("Não foi possível carregar os itens do estoque.");
+      } finally {
+        if (!controller.signal.aborted) setLoadingInventory(false);
+      }
+    }
+    void loadInventory();
+    return () => controller.abort();
+  }, [form.category]);
 
   const addProduct = () => {
     setForm((previous) => ({
@@ -422,6 +527,11 @@ export default function NewExpensePage() {
       return;
     }
 
+    if (form.category === "STOCK" && !form.inventoryId) {
+      setError("Selecione um item do estoque.");
+      return;
+    }
+
     if (
       form.category === "STOCK" &&
       (!Number.isInteger(Number(form.quantity)) ||
@@ -515,6 +625,7 @@ export default function NewExpensePage() {
       description: form.description.trim() || null,
       value: expenseValue,
       category: form.category,
+      inventoryId: form.category === "STOCK" ? form.inventoryId : null,
       allocationType: form.allocationType,
       status: form.status,
       quantity:
@@ -639,6 +750,7 @@ export default function NewExpensePage() {
                   setForm((previous) => ({
                     ...previous,
                     category,
+                    inventoryId: category === "STOCK" ? previous.inventoryId : "",
                     quantity:
                       category === "STOCK"
                         ? previous.quantity
@@ -673,6 +785,21 @@ export default function NewExpensePage() {
                 ))}
               </select>
             </Field>
+
+            {form.category === "STOCK" && (
+              <div className="sm:col-span-2">
+                <Field label="Item do estoque" required>
+                  <InventorySearchSelect
+                    items={inventoryItems}
+                    value={form.inventoryId}
+                    onChange={(inventoryId) => updateForm("inventoryId", inventoryId)}
+                  />
+                  {loadingInventory && (
+                    <p className="mt-2 text-xs text-[#81766b]">Carregando itens do estoque...</p>
+                  )}
+                </Field>
+              </div>
+            )}
 
             {form.category === "STOCK" && (
               <Field label="Quantidade em estoque" required>
