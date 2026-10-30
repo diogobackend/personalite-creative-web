@@ -10,16 +10,31 @@ import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 
 type PaymentMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "BANK_SLIP";
 type Customer = { id: string; name: string; email?: string | null; cpf?: string | null; rg?: string | null; phone?: string | null };
-type ProductPrice = { minimumQuantity: number; unitPrice: number };
-type Product = { id: string; name: string; commercialCode?: string | null; pricingType?: string; prices: ProductPrice[] };
-type SaleItemForm = { key: number; productId: string; quantity: string };
+type PriceTier = { minimumQuantity: number; unitPrice: number };
+type Product = { id: string; name: string; commercialCode?: string | null; price?: number | null; prices: PriceTier[] };
+type SaleItemForm = {
+  key: number;
+  productId: string;
+  quantity: number;
+  color: string;
+  size: string;
+  material: string;
+  brand: string;
+  model: string;
+};
+
+const createSaleItem = (key: number): SaleItemForm => ({
+  key, productId: "", quantity: 1,
+  color: "", size: "", material: "", brand: "", model: "",
+});
 type SaleForm = {
   customerId: string;
   hasDeliveryDeadline: boolean;
   deliveryDeadline: string;
-  downPaymentPercentage: "0" | "50" | "100";
+  downPaymentPercentage: "0" | "0" | "50" | "100";
   paidPercentage: string;
   paymentMethod: PaymentMethod;
+  observation: string;
   items: SaleItemForm[];
 };
 
@@ -98,14 +113,6 @@ function customerLabel(customer: Customer): string {
   return [customer.name, ...identifiers].join(" — ");
 }
 
-function getUnitPrice(product: Product | undefined, quantity: number): number | null {
-  if (!product || product.pricingType === "QUOTE") return null;
-  const applicable = product.prices
-    .filter((price) => Number.isFinite(price.unitPrice) && price.minimumQuantity <= quantity)
-    .sort((a, b) => b.minimumQuantity - a.minimumQuantity);
-  return applicable[0]?.unitPrice ?? null;
-}
-
 function toNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim()) {
@@ -115,16 +122,26 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+function getUnitPrice(product: Product | undefined, quantity: number): number | null {
+  if (!product) return null;
+  const tiers = [...product.prices].sort((a, b) => a.minimumQuantity - b.minimumQuantity);
+  if (tiers.length === 0) return product.price ?? null;
+  // A primeira faixa também vale para quantidades inferiores ao seu mínimo.
+  const applicable = tiers.filter((tier) => quantity >= tier.minimumQuantity);
+  return (applicable.at(-1) ?? tiers[0]).unitPrice;
+}
+
 export default function NewSalePage() {
   const router = useRouter();
   const [form, setForm] = useState<SaleForm>({
     customerId: "",
     hasDeliveryDeadline: false,
     deliveryDeadline: "",
-    downPaymentPercentage: "0",
+    downPaymentPercentage: "50",
     paidPercentage: "0",
     paymentMethod: "PIX",
-    items: [{ key: 0, productId: "", quantity: "1" }],
+    observation: "",
+    items: [createSaleItem(0)],
   });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -150,16 +167,15 @@ export default function NewSalePage() {
         const config = { signal: controller.signal, headers: token ? { Authorization: `Bearer ${token}` } : undefined };
         const [customersResponse, productsResponse] = await Promise.all([
           api.get("/users", { ...config, params: { page: 0, size: 100 } }),
-          api.get("/products", { ...config, params: { page: 0, pageSize: 100, sortBy: "name", sortDirection: "ASC" } }),
+          api.get("/products", { ...config, params: { page: 0, size: 100, sortBy: "name", sortDirection: "ASC" } }),
         ]);
         if (controller.signal.aborted) return;
         const usersData = customersResponse.data?.content ?? customersResponse.data;
         const productsData = productsResponse.data?.content ?? productsResponse.data;
-        setCustomers((Array.isArray(usersData) ? usersData : []).filter((user: { role?: string | { name?: string }; roles?: Array<string | { name?: string }> }) => {
-          const roles = [user.role, ...(user.roles ?? [])].map((role) => typeof role === "string" ? role : role?.name);
-          return roles.includes("CANDIDATE") || roles.includes("ROLE_CANDIDATE");
-        }).map((user: {
-          userId?: string; id?: string; name: string; email?: string; cpf?: string; rg?: string; phone?: string; telephone?: string; role?: string | { name?: string }; roles?: Array<string | { name?: string }>;
+        setCustomers((Array.isArray(usersData) ? usersData : []).filter((user: { role?: string; roles?: string[] }) =>
+          user.role === "CANDIDATE" || user.roles?.includes("CANDIDATE")
+        ).map((user: {
+          userId?: string; id?: string; name: string; email?: string; cpf?: string; rg?: string; phone?: string; telephone?: string; role?: string; roles?: string[];
         }) => ({
           id: user.userId ?? user.id ?? "",
           name: user.name,
@@ -169,16 +185,16 @@ export default function NewSalePage() {
           phone: user.phone ?? user.telephone,
         })).filter((user: Customer) => user.id));
         setProducts((Array.isArray(productsData) ? productsData : []).map((product: {
-          id: string; name: string; commercialCode?: string; code?: string; pricingType?: string; prices?: Array<{ minimumQuantity: number; unitPrice: number | string }>;
+          id: string; name: string; commercialCode?: string; code?: string; price?: number | string;
+          salePrice?: number | string; sellingPrice?: number | string; prices?: { minimumQuantity: number; unitPrice: number | string }[];
         }) => ({
           id: product.id,
           name: product.name,
           commercialCode: product.commercialCode ?? product.code,
-          pricingType: product.pricingType,
-          prices: (product.prices ?? []).map((price) => ({
-            minimumQuantity: Number(price.minimumQuantity),
-            unitPrice: toNumber(price.unitPrice) ?? NaN,
-          })),
+          price: toNumber(product.salePrice ?? product.sellingPrice ?? product.price),
+          prices: (product.prices ?? []).map((tier) => ({
+            minimumQuantity: tier.minimumQuantity, unitPrice: toNumber(tier.unitPrice) ?? 0,
+          })).filter((tier) => tier.minimumQuantity > 0 && tier.unitPrice > 0),
         })));
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
@@ -192,19 +208,19 @@ export default function NewSalePage() {
   }, []);
 
   const total = form.items.reduce((sum, item) => {
-    const price = getUnitPrice(products.find((product) => product.id === item.productId), Number(item.quantity)) ?? 0;
-    return sum + price * (Number(item.quantity) || 0);
+    const price = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
+    return sum + price * item.quantity;
   }, 0);
   const paidPercentage = Number(form.paidPercentage);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    if (form.items.length === 0 || form.items.some((item) => !item.productId || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1)) {
+    if (form.items.length === 0 || form.items.some((item) => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1)) {
       setError("Selecione pelo menos um produto e informe uma quantidade válida."); return;
     }
     if (form.items.some((item) => {
-      const price = getUnitPrice(products.find((product) => product.id === item.productId), Number(item.quantity));
+      const price = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity);
       return price == null || price <= 0;
     })) {
       setError("Um ou mais produtos estão sem preço de venda válido."); return;
@@ -226,7 +242,17 @@ export default function NewSalePage() {
         downPaymentPercentage: Number(form.downPaymentPercentage),
         paidPercentage,
         paymentMethod: form.paymentMethod,
-        items: form.items.map((item) => ({ productId: item.productId, inventoryId: null, quantity: Number(item.quantity) })),
+        observation: form.observation.trim() || null,
+        items: form.items.map((item) => ({
+          productId: item.productId,
+          inventoryId: null,
+          quantity: item.quantity,
+          color: item.color.trim() || null,
+          size: item.size.trim() || null,
+          material: item.material.trim() || null,
+          brand: item.brand.trim() || null,
+          model: item.model.trim() || null,
+        })),
       }, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       router.push("/vendas");
     } catch (exception) {
@@ -261,16 +287,17 @@ export default function NewSalePage() {
             
             <button type="button" onClick={() => setForm((previous) => ({
               ...previous,
-              items: [...previous.items, { key: Math.max(-1, ...previous.items.map((item) => item.key)) + 1, productId: "", quantity: "1" }],
+              items: [...previous.items, createSaleItem(Math.max(-1, ...previous.items.map((item) => item.key)) + 1)],
             }))} className="inline-flex items-center gap-2 rounded-xl border border-[#d9c4a4] bg-white px-4 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f4ede2]"><Plus size={16} />Adicionar produto</button>
           </div>
 
           <div className="mt-6 space-y-3">
             {form.items.map((item, index) => {
               const product = products.find((entry) => entry.id === item.productId);
-              const unitPrice = getUnitPrice(product, Number(item.quantity)) ?? 0;
+              const unitPrice = getUnitPrice(product, item.quantity) ?? 0;
               return (
-                <div key={item.key} className="grid gap-4 rounded-xl border border-[#e8ddcb] bg-white p-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
+                <div key={item.key} className="rounded-xl border border-[#e8ddcb] bg-white p-4">
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
                   <Field label={`Produto ${index + 1}`} required>
                     <SearchSelect
                       items={products}
@@ -283,23 +310,61 @@ export default function NewSalePage() {
                   </Field>
                   <Field label="Qtd">
                     <div className="flex h-[46px] items-center justify-between rounded-xl border border-[#e8e0d4] bg-white">
-                      <button type="button" aria-label="Diminuir quantidade" disabled={Number(item.quantity) <= 1} onClick={() => updateItem(item.key, { quantity: String(Math.max(1, (Number(item.quantity) || 1) - 1)) })} className="px-2 text-[#927448] disabled:opacity-30"><Minus size={16} /></button>
-                      <input type="number" min="1" step="1" inputMode="numeric" aria-label="Quantidade" value={item.quantity} onChange={(event) => updateItem(item.key, { quantity: event.target.value })} className="w-12 bg-transparent text-center text-sm font-semibold text-[#342d27] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                      <button type="button" aria-label="Aumentar quantidade" onClick={() => updateItem(item.key, { quantity: String((Number(item.quantity) || 0) + 1) })} className="px-2 text-[#927448]"><Plus size={16} /></button>
+                      <button type="button" aria-label="Diminuir quantidade" disabled={item.quantity <= 1} onClick={() => updateItem(item.key, { quantity: Math.max(1, item.quantity - 1) })} className="px-2 text-[#927448] disabled:opacity-30"><Minus size={16} /></button>
+                      <input type="number" min="1" step="1" aria-label="Quantidade" value={item.quantity} onChange={(event) => updateItem(item.key, { quantity: Number(event.target.value) })} className="w-12 bg-transparent text-center text-sm font-semibold text-[#342d27] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                      <button type="button" aria-label="Aumentar quantidade" onClick={() => updateItem(item.key, { quantity: item.quantity + 1 })} className="px-2 text-[#927448]"><Plus size={16} /></button>
                     </div>
                   </Field>
                   <div>
                     <p className={LABEL_CLASS}>Valor</p>
-                    <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">{formatCurrency(unitPrice * (Number(item.quantity) || 0))}</p>
+                    <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">{formatCurrency(unitPrice * item.quantity)}</p>
                     {product && <p className="text-xs text-[#81766b]">{formatCurrency(unitPrice)} / un.</p>}
                   </div>
                   <button type="button" title="Remover produto" disabled={form.items.length === 1} onClick={() => setForm((previous) => ({ ...previous, items: previous.items.filter((entry) => entry.key !== item.key) }))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 text-red-500 transition hover:bg-red-50 disabled:opacity-30"><Trash2 size={18} /></button>
+                  </div>
+                  {item.productId && (
+                    <details className="mt-4 border-t border-[#ece6dc] pt-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
+                        Add características
+                      </summary>
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {([
+                          ["color", "Cor"],
+                          ["size", "Tamanho"],
+                          ["material", "Material"],
+                          ["brand", "Marca"],
+                          ["model", "Modelo"],
+                        ] as const).map(([field, label]) => (
+                          <Field key={field} label={label}>
+                            <input
+                              type="text"
+                              value={item[field]}
+                              onChange={(event) => updateItem(item.key, { [field]: event.target.value })}
+                              className={INPUT_CLASS}
+                              placeholder={`${label} (opcional)`}
+                            />
+                          </Field>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               );
             })}
           </div>
+          <div className="mt-5">
+            <Field label="Observação">
+              <textarea
+                value={form.observation}
+                onChange={(event) => updateForm("observation", event.target.value)}
+                rows={3}
+                placeholder="Adicione observações sobre a venda, qualquer coisa..."
+                className={INPUT_CLASS}
+              />
+            </Field>
+          </div>
           <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e2cfb3] bg-[#efe2cd] px-5 py-4">
-            <span className="text-sm font-semibold text-[#51473d]">Valor total da compra</span>
+            <span className="text-sm font-semibold text-[#51473d]">Total</span>
             <span className="text-xl font-bold text-[#342d27]">{formatCurrency(total)}</span>
           </div>
         </section>
@@ -317,7 +382,7 @@ export default function NewSalePage() {
           </Field>
 
           <div>
-            <p className={LABEL_CLASS}>Tem prazo máximo de entrega?</p>
+            <p className={LABEL_CLASS}>Tem prazo de entrega?</p>
             <div className="flex flex-wrap gap-3">
               {([false, true] as const).map((value) => (
                 <label key={String(value)} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition ${form.hasDeliveryDeadline === value ? "border-[#a98a58] bg-[#f4ede2] text-[#342d27]" : "border-[#e8e0d4] bg-white text-[#51473d]"}`}>
@@ -340,8 +405,8 @@ export default function NewSalePage() {
                 <option value="100">100%</option>
               </select>
             </Field>
-            <Field label="Valor já pago (%)" required>
-              <select required value={form.paidPercentage} onChange={(event) => updateForm("paidPercentage", event.target.value)} className={INPUT_CLASS}>
+            <Field label="Já pago (%)" required>
+              <select value={form.paidPercentage} onChange={(event) => updateForm("paidPercentage", event.target.value)} className={INPUT_CLASS}>
                 <option value="0">0%</option>
                 <option value="50">50%</option>
                 <option value="100">100%</option>
@@ -353,11 +418,33 @@ export default function NewSalePage() {
               </select>
             </Field>
           </div>
-          <div className="mt-6 grid gap-3 rounded-xl bg-[#f4ede2] px-5 py-4 text-sm sm:grid-cols-3">
-            <div><p className="text-[#81766b]">Total da venda</p><p className="mt-1 font-bold text-[#342d27]">{formatCurrency(total)}</p></div>
-            <div><p className="text-[#81766b]">Valor de entrada</p><p className="mt-1 font-bold text-[#342d27]">{formatCurrency(total * Number(form.downPaymentPercentage) / 100)}</p></div>
-            <div><p className="text-[#81766b]">Valor já pago</p><p className="mt-1 font-bold text-[#342d27]">{formatCurrency(total * (Number.isFinite(paidPercentage) ? paidPercentage : 0) / 100)}</p></div>
-          </div>
+         <div className="mt-6 grid gap-3 rounded-xl bg-[#f4ede2] px-5 py-4 text-sm sm:grid-cols-4">
+  <div>
+    <p className="text-[#81766b]">Total</p>
+    <p className="mt-1 font-bold text-[#342d27]">{formatCurrency(total)}</p>
+  </div>
+
+  <div>
+    <p className="text-[#81766b]">Entrada</p>
+    <p className="mt-1 font-bold text-[#342d27]">
+      {formatCurrency(total * Number(form.downPaymentPercentage) / 100)}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-[#81766b]">Já pago</p>
+    <p className="mt-1 font-bold text-[#342d27]">
+      {formatCurrency(total * paidPercentage / 100)}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-[#81766b]">Faltam</p>
+    <p className="mt-1 font-bold text-[#342d27]">
+      {formatCurrency(total * (100 - paidPercentage) / 100)}
+    </p>
+  </div>
+</div>
         </section>
 
         <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
