@@ -107,9 +107,17 @@ function formatCurrency(value: number): string {
 }
 
 function customerLabel(customer: Customer): string {
-  const identifiers = [customer.email, customer.cpf, customer.rg, customer.phone]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+  const identifiers = [
+    customer.email && !/^\d/.test(customer.email) ? customer.email : null,
+    customer.cpf,
+    customer.rg,
+    customer.phone,
+  ]
+    .filter((value): value is string =>
+      typeof value === "string" && value.trim().length > 0
+    )
     .slice(0, 2);
+
   return [customer.name, ...identifiers].join(" — ");
 }
 
