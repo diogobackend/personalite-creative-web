@@ -16,6 +16,8 @@ type SaleItemForm = {
   key: number;
   productId: string;
   quantity: number;
+  adjustmentType: "discount" | "addition";
+  adjustmentAmount: string;
   color: string;
   size: string;
   material: string;
@@ -25,6 +27,7 @@ type SaleItemForm = {
 
 const createSaleItem = (key: number): SaleItemForm => ({
   key, productId: "", quantity: 1,
+  adjustmentType: "" as SaleItemForm["adjustmentType"], adjustmentAmount: "",
   color: "", size: "", material: "", brand: "", model: "",
 });
 type SaleForm = {
@@ -139,6 +142,11 @@ function getUnitPrice(product: Product | undefined, quantity: number): number | 
   return (applicable.at(-1) ?? tiers[0]).unitPrice;
 }
 
+function getAdditionalAmount(item: SaleItemForm): number {
+  const amount = Number(item.adjustmentAmount) || 0;
+  return item.adjustmentType === "discount" ? -amount : amount;
+}
+
 export default function NewSalePage() {
   const router = useRouter();
   const [form, setForm] = useState<SaleForm>({
@@ -217,7 +225,7 @@ export default function NewSalePage() {
 
   const total = form.items.reduce((sum, item) => {
     const price = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
-    return sum + price * item.quantity;
+    return sum + price * item.quantity + getAdditionalAmount(item);
   }, 0);
   const paidPercentage = Number(form.paidPercentage);
 
@@ -240,6 +248,16 @@ export default function NewSalePage() {
       setError("O percentual já pago deve estar entre 0 e 100."); return;
     }
 
+    if (form.items.some((item) => {
+      const unitPrice = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
+      const rawAdjustment = item.adjustmentAmount.trim();
+      const amount = rawAdjustment === "" ? 0 : Number(rawAdjustment);
+      return !Number.isFinite(amount) || amount < 0 || unitPrice * item.quantity + getAdditionalAmount(item) < 0;
+    })) {
+      setError("O produto precisa ser vendido com um valor positivo");
+      return;
+    }
+
     setSaving(true);
     try {
       const token = localStorage.getItem("access_token");
@@ -255,6 +273,8 @@ export default function NewSalePage() {
           productId: item.productId,
           inventoryId: null,
           quantity: item.quantity,
+          unitPrice: getUnitPrice(products.find((product) => product.id === item.productId), item.quantity),
+          additionalAmount: getAdditionalAmount(item),
           color: item.color.trim() || null,
           size: item.size.trim() || null,
           material: item.material.trim() || null,
@@ -303,6 +323,8 @@ export default function NewSalePage() {
             {form.items.map((item, index) => {
               const product = products.find((entry) => entry.id === item.productId);
               const unitPrice = getUnitPrice(product, item.quantity) ?? 0;
+              const additionalAmount = getAdditionalAmount(item);
+              const itemTotal = unitPrice * item.quantity + additionalAmount;
               return (
                 <div key={item.key} className="rounded-xl border border-[#e8ddcb] bg-white p-4">
                   <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
@@ -325,12 +347,72 @@ export default function NewSalePage() {
                   </Field>
                   <div>
                     <p className={LABEL_CLASS}>Valor</p>
-                    <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">{formatCurrency(unitPrice * item.quantity)}</p>
+                    <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">{formatCurrency(itemTotal)}</p>
                     {product && <p className="text-xs text-[#81766b]">{formatCurrency(unitPrice)} / un.</p>}
                   </div>
                   <button type="button" title="Remover produto" disabled={form.items.length === 1} onClick={() => setForm((previous) => ({ ...previous, items: previous.items.filter((entry) => entry.key !== item.key) }))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 text-red-500 transition hover:bg-red-50 disabled:opacity-30"><Trash2 size={18} /></button>
                   </div>
+                 
                   {item.productId && (
+                    <div className="mt-4 border-t border-[#ece6dc] pt-4">
+                      <p className="mb-3 text-sm font-semibold text-[#51473d]">Ajuste de valor (opcional)</p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex rounded-xl border border-[#e8e0d4] bg-[#faf8f5] p-1">
+                        {([
+                          { value: "discount", label: "Desconto −" },
+                          { value: "addition", label: "Acréscimo +" },
+                        ] as const).map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              updateItem(item.key, { adjustmentType: option.value })
+                            }
+                            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                            item.adjustmentType === option.value
+                              ? option.value === "discount"
+                                ? "!bg-red-500 !text-white shadow-sm"
+                                : "!bg-blue-600 !text-white shadow-sm"
+                              : "bg-transparent text-[#81766b] hover:text-[#51473d]"
+                          }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                        <div className="relative w-40">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#81766b]">R$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.adjustmentAmount}
+                            onChange={(event) => {
+                              const value = event.target.value;
+
+                              if (value === "" || (/^\d*\.?\d*$/.test(value) && Number(value) >= 0)) {
+                                updateItem(item.key, { adjustmentAmount: value });
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (["-", "+", "e", "E"].includes(event.key)) {
+                                event.preventDefault();
+                              }
+                            }}
+                            onPaste={(event) => {
+                              if (/[+\-eE]/.test(event.clipboardData.getData("text"))) {
+                                event.preventDefault();
+                              }
+                            }}
+                            placeholder="0,00"
+                            className={`${INPUT_CLASS} pl-11`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                   {item.productId && (
                     <details className="mt-4 border-t border-[#ece6dc] pt-3">
                       <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
                         Add características

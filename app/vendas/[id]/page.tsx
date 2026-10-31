@@ -22,6 +22,9 @@ type SaleItem = {
   productId: string;
   inventoryId: string | null;
   quantity: number;
+  unitPrice: number | null;
+  additionalAmount: number;
+  totalPrice: number | null;
   color: string | null;
   brand: string | null;
   model: string | null;
@@ -500,9 +503,17 @@ function SaleDetailsContent() {
                             )}
                         </div>
 
+                        <div className="flex flex-wrap items-center gap-3">
                         <span className="rounded-lg bg-[#f4ede2] px-3 py-2 text-sm font-semibold text-[#51473d]">
                             {item.quantity} un.
                         </span>
+
+                        {item.totalPrice !== null && (
+                            <span className="rounded-lg bg-[#f4ede2] px-3 py-2 text-sm font-bold text-[#342d27]">
+                            {formatCurrency(item.totalPrice)}
+                            </span>
+                        )}
+                        </div>
                         </div>
 
                         {characteristics.length > 0 && (

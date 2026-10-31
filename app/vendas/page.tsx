@@ -635,11 +635,15 @@ params.delete("size");
                     </td>
 
                     <td className="px-5 py-4 align-middle">
-                    <DeadlineBadge status={sale.deadlineStatus} />
-                    <p className="mt-1 text-xs text-[#81766b]">
-                        {formatDate(sale.deliveryDeadline)}
-                    </p>
-                    </td>
+                        {sale.deliveryDeadline && (
+                            <>
+                            <DeadlineBadge status={sale.deadlineStatus} />
+                            <p className="mt-1 text-xs text-[#81766b]">
+                                {formatDate(sale.deliveryDeadline)}
+                            </p>
+                            </>
+                        )}
+                        </td>
 
                     <td className="px-3 py-4 align-middle">
                     
