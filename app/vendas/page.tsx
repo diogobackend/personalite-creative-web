@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode, Fragment } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, Pencil, Filter,
@@ -195,7 +196,6 @@ export default function SalesPageScreen() {
   const [draft, setDraft] = useState<Filters>({ ...EMPTY_FILTERS });
   const [applied, setApplied] = useState<Filters>({ ...EMPTY_FILTERS });
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [expandedSales, setExpandedSales] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [sortBy, setSortBy] = useState("createdAt");
@@ -205,6 +205,8 @@ export default function SalesPageScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const router = useRouter();
 
   const updateDraft = (field: keyof Filters, value: string) =>
     setDraft((previous) => ({ ...previous, [field]: value }));
@@ -291,9 +293,6 @@ params.delete("size");
   const firstElement = totalElements === 0 ? 0 : currentPage * size + 1;
   const lastElement = totalElements === 0 ? 0 : Math.min(firstElement + (result?.sales.length ?? 0) - 1, totalElements);
   const activeCount = useMemo(() => Object.values(applied).filter((value) => value.trim()).length, [applied]);
-
-  const toggleExpanded = (id: string) => setExpandedSales((previous) =>
-    previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id]);
 
   const advancedTextFields: { field: keyof Filters; label: string; placeholder: string }[] = [
     { field: "search", label: "Busca geral", placeholder: "Cliente, produto ou observação" },
@@ -553,76 +552,79 @@ params.delete("size");
           </tr>
         ) : (
           result.sales.map((sale) => {
-            const expanded = expandedSales.includes(sale.id);
             const shortId = sale.id.slice(0, 8).toUpperCase();
             const customerName =
               customerNames[sale.customerId] ?? "Cliente indisponível";
 
-            return (
-              <Fragment key={sale.id}>
-                <tr className="border-b border-[#eee8df] bg-white transition-colors even:bg-[#e9e4dc] hover:bg-[#ded7cc]">
-                  <td className="px-5 py-4 align-middle">
-                    <span
-                      className="block truncate font-semibold text-[#342d27]"
-                      title={customerName}
+            
+                return (
+                <tr
+                    key={sale.id}
+                    onClick={() => router.push(`/vendas/${sale.id}`)}
+                    className="cursor-pointer border-b border-[#eee8df] bg-white transition-colors even:bg-[#e9e4dc] hover:bg-[#ded7cc]"
                     >
-                      {customerName.slice(0, 13)}
+                    <td className="px-5 py-4 align-middle">
+                    <span
+                        className="block truncate font-semibold text-[#342d27]"
+                        title={customerName}
+                    >
+                        {customerName.slice(0, 13)}
                     </span>
                     <p className="mt-1 text-xs text-[#81766b]">
-                      {formatDate(sale.createdAt)}
+                        {formatDate(sale.createdAt)}
                     </p>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
+                    <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
                     {sale.items.length}{" "}
                     {sale.items.length === 1 ? "item" : "itens"}
                     <p className="text-xs text-[#81766b]">
-                      {sale.items.reduce(
+                        {sale.items.reduce(
                         (sum, item) => sum + item.quantity,
                         0,
-                      )}{" "}
-                      unidades
+                        )}{" "}
+                        unidades
                     </p>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 align-middle text-sm font-semibold text-[#342d27]">
+                    <td className="px-5 py-4 align-middle text-sm font-semibold text-[#342d27]">
                     {formatCurrency(sale.totalAmount)}
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
+                    <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
                     <p className="font-medium text-emerald-700">
-                      {formatCurrency(sale.paidAmount)} recebido
+                        {formatCurrency(sale.paidAmount)} recebido
                     </p>
                     <p className="text-xs text-[#81766b]">
-                      {formatCurrency(sale.remainingAmount)} restante
+                        {formatCurrency(sale.remainingAmount)} restante
                     </p>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eee8df]">
-                      <div
+                        <div
                         className="h-full rounded-full bg-[#a98a58]"
                         style={{
-                          width: `${Math.min(
+                            width: `${Math.min(
                             100,
                             Math.max(0, sale.paidPercentage),
-                          )}%`,
+                            )}%`,
                         }}
-                      />
+                        />
                     </div>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 align-middle">
+                    <td className="px-5 py-4 align-middle">
                     <span
-                      className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+                        className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
                         sale.paymentStatus === "PAID"
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                          : sale.paymentStatus === "UNPAID"
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : sale.paymentStatus === "UNPAID"
                             ? "bg-red-50 text-red-700 ring-red-200"
                             : "bg-amber-50 text-amber-700 ring-amber-200"
-                      }`}
+                        }`}
                     >
-                      {sale.paidPercentage}% pago
+                        {sale.paidPercentage}% pago
                     </span>
                     <p className="mt-1 text-xs text-[#81766b]">
-                      {{
+                        {{
                         PIX: "Pix",
                         CASH: "Dinheiro",
                         CREDIT_CARD: "Cartão de crédito",
@@ -630,132 +632,43 @@ params.delete("size");
                         BANK_TRANSFER: "Transferência bancária",
                         }[sale.paymentMethod] ?? sale.paymentMethod}
                     </p>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 align-middle">
+                    <td className="px-5 py-4 align-middle">
                     <DeadlineBadge status={sale.deadlineStatus} />
                     <p className="mt-1 text-xs text-[#81766b]">
-                      {formatDate(sale.deliveryDeadline)}
+                        {formatDate(sale.deliveryDeadline)}
                     </p>
-                  </td>
-
-                  <td className="px-3 py-4 align-middle">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(sale.id)}
-                        aria-expanded={expanded}
-                        aria-label={`Visualizar venda ${shortId}`}
-                        title="Visualizar venda"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition hover:bg-[#f2e9da]"
-                      >
-                        <Eye size={19} />
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Editar dados da venda"
-                        aria-label={`Editar venda ${shortId}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition hover:bg-[#f2e9da]"
-                        >
-                        <Pencil size={18} />
-                        </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {expanded && (
-                  <tr className="border-b border-[#eee8df] bg-[#fdfcfb]">
-                    <td colSpan={7} className="px-5 py-5">
-                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold text-[#342d27]">
-                          Detalhes da venda #{shortId}
-                        </h3>
-                        <span className="text-xs text-[#81766b]">
-                          Cliente: {customerName}
-                        </span>
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                          <p className="text-xs text-[#81766b]">Entrada</p>
-                          <p className="text-sm font-semibold text-[#342d27]">
-                            {formatCurrency(sale.downPaymentAmount)} (
-                            {sale.downPaymentPercentage}%)
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-[#81766b]">Recebido</p>
-                          <p className="text-sm font-semibold text-[#342d27]">
-                            {formatCurrency(sale.paidAmount)} (
-                            {sale.paidPercentage}%)
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-[#81766b]">A receber</p>
-                          <p className="text-sm font-semibold text-[#342d27]">
-                            {formatCurrency(sale.remainingAmount)}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-[#81766b]">Prazo</p>
-                          <p className="text-sm font-semibold text-[#342d27]">
-                            {formatDate(sale.deliveryDeadline)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <h4 className="mb-2 mt-5 text-sm font-semibold text-[#342d27]">
-                        Produtos da venda
-                      </h4>
-
-                      <div className="space-y-2">
-                        {sale.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="rounded-xl border border-[#eee8df] bg-white px-4 py-3 text-sm text-[#51473d]"
-                          >
-                            <div className="flex flex-wrap justify-between gap-2">
-                              <span className="font-semibold">
-                                Produto{" "}
-                                {item.productId.slice(0, 8).toUpperCase()}
-                              </span>
-                              <span>{item.quantity} un.</span>
-                            </div>
-                            <p className="mt-1 text-xs text-[#81766b]">
-                              {[
-                                item.color,
-                                item.brand,
-                                item.model,
-                                item.size,
-                                item.material,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ") ||
-                                "Sem características adicionais"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {sale.observation && (
-                        <p className="mt-4 text-sm text-[#51473d]">
-                          <span className="font-semibold">Observação:</span>{" "}
-                          {sale.observation}
-                        </p>
-                      )}
-
-                      <p className="mt-3 break-all text-xs text-[#81766b]">
-                        ID: {sale.id}
-                      </p>
                     </td>
-                  </tr>
-                )}
-              </Fragment>
-            );
+
+                    <td className="px-3 py-4 align-middle">
+                    
+                        <div className="flex items-center justify-center gap-2">
+                        <Link
+                            href={`/vendas/${sale.id}`}
+                            onClick={(event) => event.stopPropagation()}
+                            aria-label={`Visualizar venda ${shortId}`}
+                            title="Visualizar venda"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition group-hover:bg-[#f2e9da] group-hover:text-[#735a36] hover:bg-[#e8d9c1]"
+                        >
+                            <Eye size={19} />
+                        </Link>
+
+                        <button
+                            type="button"
+                            title="Editar dados da venda"
+                            onClick={(event) => event.stopPropagation()}
+                            aria-label={`Editar venda ${shortId}`}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition hover:bg-[#f2e9da]"
+                        >
+                            <Pencil size={18} />
+                        </button>
+                        </div>
+
+                    </td>
+                </tr>
+                );
+
           })
         )}
       </tbody>
