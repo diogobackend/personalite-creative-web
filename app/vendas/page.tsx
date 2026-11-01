@@ -43,6 +43,7 @@ type Sale = {
   deadlineStatus: DeadlineStatus;
   observation: string | null;
   items: SaleItem[];
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -226,15 +227,33 @@ export default function SalesPageScreen() {
     setPage(0);
   };
 
-  const toggleQuickFilter = (field: keyof Filters, value: string) => {
-    const next = { ...draft, [field]: draft[field] === value ? "" : value };
-    // Prazo específico e janela de vencimento não devem se contradizer.
-    if (field === "deadlineStatus") next.dueWithinDays = "";
-    if (field === "dueWithinDays") next.deadlineStatus = "";
-    setDraft(next);
-    setApplied(next);
-    setPage(0);
+  
+const toggleQuickFilter = (field: keyof Filters, value: string) => {
+  const next = {
+    ...draft,
+    [field]: draft[field] === value ? "" : value,
   };
+
+  if (field === "deadlineStatus") {
+    next.dueWithinDays = "";
+    next.delivered = "false";
+  }
+
+  if (field === "dueWithinDays") {
+    next.deadlineStatus = "";
+    next.delivered = "false";
+  }
+
+  if (field === "delivered" && value === "true") {
+    next.deadlineStatus = "";
+    next.dueWithinDays = "";
+  }
+
+  setDraft(next);
+  setApplied(next);
+  setPage(0);
+};
+
 
   const fetchSales = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
@@ -637,16 +656,22 @@ params.delete("size");
                     </p>
                     </td>
 
-                    <td className="px-5 py-4 align-middle">
-                        {sale.deliveryDeadline && (
+                    
+                        <td className="px-5 py-4 align-middle">
+                        {sale.deliveredAt ? (
+                            <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                            Entregue
+                            </span>
+                        ) : sale.deliveryDeadline ? (
                             <>
                             <DeadlineBadge status={sale.deadlineStatus} />
                             <p className="mt-1 text-xs text-[#81766b]">
                                 {formatDate(sale.deliveryDeadline)}
                             </p>
                             </>
-                        )}
+                        ) : null}
                         </td>
+
 
                     <td className="px-3 py-4 align-middle">
                     

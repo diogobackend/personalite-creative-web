@@ -48,6 +48,7 @@ type Sale = {
   deadlineStatus: string;
   observation: string | null;
   items: SaleItem[];
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -408,13 +409,16 @@ function SaleDetailsContent() {
                     value={formatDate(sale.deliveryDeadline)}
                 />
                 )}
-              <DetailField
+              
+                <DetailField
                 label="Situação da entrega"
                 value={
-                  DEADLINE_STATUS_LABELS[sale.deadlineStatus] ??
-                  sale.deadlineStatus
+                    sale.deliveredAt
+                    ? "Entregue"
+                    : DEADLINE_STATUS_LABELS[sale.deadlineStatus] ??
+                        sale.deadlineStatus
                 }
-              />
+                />
               <DetailField
                 label="Última atualização"
                 value={formatDateTime(sale.updatedAt)}
