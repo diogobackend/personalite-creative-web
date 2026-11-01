@@ -416,18 +416,6 @@ params.delete("size");
                         <option value="BOLETO">Boleto</option>
                       </select>
                     </Field>
-                    <Field label="Situação do pagamento">
-                      <select className={INPUT_CLASS} value={draft.paymentStatus} onChange={(event) => updateDraft("paymentStatus", event.target.value)}>
-                        <option value="">Todas</option>
-                        {Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Situação do prazo">
-                      <select className={INPUT_CLASS} value={draft.deadlineStatus} onChange={(event) => updateDraft("deadlineStatus", event.target.value)}>
-                        <option value="">Todas</option>
-                        {Object.entries(DEADLINE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
-                    </Field>
                     {advancedNumberFields.map(({ field, label, max }) => (
                       <Field key={field} label={label}><input className={INPUT_CLASS} type="number" min="0" max={max} step="0.01" value={draft[field]} onChange={(event) => updateDraft(field, event.target.value)} placeholder="0" /></Field>
                     ))}
