@@ -312,13 +312,22 @@ function SaleDetailsContent() {
   return (
     <main className="bg-[#faf8f5] px-2 py-5 sm:px-4">
       <div className="mx-auto max-w-6xl space-y-6">
-        <Link
-          href="/vendas"
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#927448] hover:text-[#735a36]"
-        >
-          <ArrowLeft size={16} />
-          Voltar para vendas
-        </Link>
+            <div className="flex items-center justify-between gap-4">
+                <Link
+                href="/vendas"
+                className="inline-flex items-center gap-2 text-sm font-medium text-[#927448] hover:text-[#735a36]"
+                >
+                <ArrowLeft size={16} />
+                Voltar para vendas
+                </Link>
+
+                <Link
+                href={`/vendas/${sale.id}/atualizar`}
+                className="rounded-xl bg-[#a98a58] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#927448]"
+                >
+                Atualizar
+                </Link>
+            </div>
 
         <div className="rounded-2xl border border-[#e8dfd2] bg-[#f4ede2] p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">

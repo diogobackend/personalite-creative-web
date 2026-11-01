@@ -102,6 +102,7 @@ type Filters = {
   paidTo: string;
   remainingFrom: string;
   remainingTo: string;
+  delivered: string;
 };
 
 const EMPTY_FILTERS: Filters = {
@@ -112,7 +113,7 @@ const EMPTY_FILTERS: Filters = {
   deliveryDeadlineTo: "", createdAtFrom: "", createdAtTo: "",
   dueWithinDays: "", minRemainingAmount: "", maxRemainingAmount: "",
   downPaymentFrom: "", downPaymentTo: "", paidFrom: "", paidTo: "",
-  remainingFrom: "", remainingTo: "",
+  remainingFrom: "", remainingTo: "", delivered: "",
 };
 
 const INPUT_CLASS = "w-full min-w-0 rounded-xl border border-[#e8e0d4] bg-white px-3 py-2.5 text-sm text-[#342d27] outline-none transition focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
@@ -170,6 +171,8 @@ const QUICK_FILTERS: { label: string; field: keyof Filters; value: string }[] = 
   { label: "Próximos 7 dias", field: "dueWithinDays", value: "7" },
   { label: "Próximos 30 dias", field: "dueWithinDays", value: "30" },
   { label: "Sem prazo", field: "deadlineStatus", value: "NO_DEADLINE" },
+  { label: "Entregues", field: "delivered", value: "true" },
+    { label: "Não entregues", field: "delivered", value: "false" },
 ];
 
 const SORT_OPTIONS = [
@@ -345,10 +348,10 @@ params.delete("size");
                 <Field label="Cliente">
                   <input className={INPUT_CLASS} value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nome, CPF, e-mail ou telefone" />
                 </Field>
-                <Field label="Valor da compra — de">
+                <Field label="Valor da compra — A partir de">
                   <input className={INPUT_CLASS} type="number" min="0" step="0.01" value={draft.minTotalAmount} onChange={(event) => updateDraft("minTotalAmount", event.target.value)} placeholder="R$ 0,00" />
                 </Field>
-                <Field label="Valor da compra — até">
+                <Field label="Valor da compra — No máximo até">
                   <input className={INPUT_CLASS} type="number" min="0" step="0.01" value={draft.maxTotalAmount} onChange={(event) => updateDraft("maxTotalAmount", event.target.value)} placeholder="Sem limite" />
                 </Field>
               </div>
@@ -658,15 +661,15 @@ params.delete("size");
                             <Eye size={19} />
                         </Link>
 
-                        <button
-                            type="button"
-                            title="Editar dados da venda"
+                        <Link
+                            href={`/vendas/${sale.id}/atualizar`}
+                            title="Atualizar dados da venda"
                             onClick={(event) => event.stopPropagation()}
                             aria-label={`Editar venda ${shortId}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#a98a58] transition hover:bg-[#f2e9da]"
-                        >
+                            >
                             <Pencil size={18} />
-                        </button>
+                            </Link>
                         </div>
 
                     </td>
