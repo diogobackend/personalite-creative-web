@@ -12,6 +12,15 @@ type PricingType = "FIXED" | "TIERED" | "QUOTE";
 type ChargeType = "PER_ORDER" | "PER_UNIT" | "FIRST_PURCHASE";
 type PriceRow = { minimumQuantity: string; unitPrice: string };
 type FeeRow = { name: string; amount: string; chargeType: ChargeType; required: boolean; active: boolean };
+type CharacteristicKey = "colors" | "sizes" | "brands" | "models" | "materials";
+type Characteristics = Record<CharacteristicKey, string[]>;
+const characteristicFields: { key: CharacteristicKey; label: string; placeholder: string }[] = [
+  { key: "colors", label: "Cores", placeholder: "Ex.: Azul" },
+  { key: "sizes", label: "Tamanhos", placeholder: "Ex.: M" },
+  { key: "brands", label: "Marcas", placeholder: "Ex.: Personalité" },
+  { key: "models", label: "Modelos", placeholder: "Ex.: Clássico" },
+  { key: "materials", label: "Materiais", placeholder: "Ex.: Algodão" },
+];
 type ProductForm = {
   code: string;
   name: string;
@@ -106,6 +115,8 @@ export default function NovoProdutoPage() {
   });
   const [prices, setPrices] = useState<PriceRow[]>([{ minimumQuantity: "", unitPrice: "" }]);
   const [fees, setFees] = useState<FeeRow[]>([]);
+  const [characteristics, setCharacteristics] = useState<Characteristics>({ colors: [], sizes: [], brands: [], models: [], materials: [] });
+  const [characteristicInputs, setCharacteristicInputs] = useState<Record<CharacteristicKey, string>>({ colors: "", sizes: "", brands: "", models: "", materials: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,6 +130,17 @@ export default function NovoProdutoPage() {
 
   function updateFee<K extends keyof FeeRow>(index: number, key: K, value: FeeRow[K]) {
     setFees((current) => current.map((row, i) => i === index ? { ...row, [key]: value } : row));
+  }
+
+  function addCharacteristic(key: CharacteristicKey) {
+    const value = characteristicInputs[key].trim();
+    if (!value) return;
+    setCharacteristics((current) => ({ ...current, [key]: current[key].some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase()) ? current[key] : [...current[key], value] }));
+    setCharacteristicInputs((current) => ({ ...current, [key]: "" }));
+  }
+
+  function removeCharacteristic(key: CharacteristicKey, value: string) {
+    setCharacteristics((current) => ({ ...current, [key]: current[key].filter((item) => item !== value) }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -155,6 +177,7 @@ export default function NovoProdutoPage() {
       productionLeadTimeMinDays: optionalNumber(form.productionLeadTimeMinDays),
       productionLeadTimeMaxDays: optionalNumber(form.productionLeadTimeMaxDays),
       active: form.active,
+      ...characteristics,
       prices: form.pricingType === "QUOTE" ? [] : prices.map((price) => ({ minimumQuantity: Number(price.minimumQuantity), unitPrice: Number(price.unitPrice) })),
       fees: fees.map((fee) => ({ name: fee.name.trim(), amount: Number(fee.amount), chargeType: fee.chargeType, required: fee.required, active: fee.active })),
     };
@@ -178,17 +201,16 @@ export default function NovoProdutoPage() {
           <div>
             <h1 className="font-serif text-4xl text-[#302c29]">Cadastrar produto</h1>
           </div>
-          <button type="button" onClick={() => router.push("/produtos")} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] bg-white px-4 py-3 text-sm text-[#65584b] hover:bg-[#faf7f2]">
+          <button type="button" onClick={() => router.push("/produtos")} className="inline-flex items-center gap-2 rounded-xl border border-green-600 bg-green-600 px-4 py-3 text-sm text-white hover:bg-green-700">
             <ArrowLeft size={16} /> Voltar aos produtos
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           <section className={sectionClass}>
-            <SectionHeading title="Informações do produto" description="Dados principais para identificação no catálogo." />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               <Field label="Código" required><input className={inputClass} value={form.code} maxLength={3} inputMode="numeric" placeholder="Ex.: 011" onChange={(e) => updateForm("code", e.target.value.replace(/\D/g, ""))} /></Field>
-              <div className="lg:col-span-2"><Field label="Nome do produto" required><input className={inputClass} value={form.name} maxLength={255} placeholder="Nome do produto" onChange={(e) => updateForm("name", e.target.value)} /></Field></div>
+              <div className="lg:col-span-2"><Field label="Nome" required><input className={inputClass} value={form.name} maxLength={255} placeholder="Produto" onChange={(e) => updateForm("name", e.target.value)} /></Field></div>
               <Field label="Categoria" required><select className={inputClass} value={form.category} onChange={(e) => updateForm("category", e.target.value as Category)}>{categories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}</select></Field>
               <Field label="Tipo de precificação" required><select className={inputClass} value={form.pricingType} onChange={(e) => updateForm("pricingType", e.target.value as PricingType)}>{pricingTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></Field>
               <Field label="Quantidade mínima"><input className={inputClass} type="number" min="1" step="1" value={form.minimumQuantity} placeholder="Ex.: 50" onChange={(e) => updateForm("minimumQuantity", e.target.value)} /></Field>
@@ -198,7 +220,41 @@ export default function NovoProdutoPage() {
           </section>
 
           <section className={sectionClass}>
-            <SectionHeading title="Produção e validade" description="Prazos opcionais em dias." />
+            <SectionHeading title="Características" />
+            <div className="grid gap-5 md:grid-cols-2">
+              {characteristicFields.map(({ key, label, placeholder }) => (
+                <div key={key} className="min-w-0">
+                  <Field label={label}>
+                    <div className="flex gap-2">
+                      <input
+                        className={inputClass}
+                        value={characteristicInputs[key]}
+                        placeholder={placeholder}
+                        onChange={(e) => setCharacteristicInputs((current) => ({ ...current, [key]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCharacteristic(key); } }}
+                      />
+                      <button type="button" onClick={() => addCharacteristic(key)} aria-label={`Adicionar ${label.toLowerCase()}`} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[#e2d7c9] px-3 text-sm text-[#946f3d] hover:bg-[#faf7f2]">
+                        <Plus size={16} /> Add
+                      </button>
+                    </div>
+                  </Field>
+                  {characteristics[key].length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {characteristics[key].map((value) => (
+                        <span key={value} className="inline-flex items-center gap-2 rounded-lg border border-[#e6ded2] bg-[#faf8f5] px-3 py-1.5 text-sm text-[#51483f]">
+                          {value}
+                          <button type="button" onClick={() => removeCharacteristic(key, value)} aria-label={`Remover ${value}`} className="text-[#a66b55] hover:text-red-700"><Trash2 size={14} /></button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={sectionClass}>
+            <SectionHeading title="Produção e validade" />
             <div className="grid gap-5 md:grid-cols-3">
               <Field label="Validade (dias)"><input className={inputClass} type="number" min="1" step="1" value={form.shelfLifeDays} onChange={(e) => updateForm("shelfLifeDays", e.target.value)} placeholder="Ex.: 30" /></Field>
               <Field label="Produção mínima (dias)"><input className={inputClass} type="number" min="0" step="1" value={form.productionLeadTimeMinDays} onChange={(e) => updateForm("productionLeadTimeMinDays", e.target.value)} placeholder="Ex.: 3" /></Field>
@@ -210,7 +266,7 @@ export default function NovoProdutoPage() {
             <section className={sectionClass}>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <SectionHeading title="Preços" description={form.pricingType === "TIERED" ? "Defina os preços por faixa de quantidade." : "Defina o preço unitário do produto."} />
-                <button type="button" onClick={() => setPrices((current) => [...current, { minimumQuantity: "", unitPrice: "" }])} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] px-4 py-2.5 text-sm text-[#946f3d] hover:bg-[#faf7f2]"><Plus size={16} /> Adicionar preço</button>
+                <button type="button" onClick={() => setPrices((current) => [...current, { minimumQuantity: "", unitPrice: "" }])} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] px-4 py-2.5 text-sm text-[#946f3d] hover:bg-[#faf7f2]"><Plus size={16} /> Add preço</button>
               </div>
               <div className="space-y-3">
                 {prices.map((price, index) => (
@@ -226,8 +282,8 @@ export default function NovoProdutoPage() {
 
           <section className={sectionClass}>
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <SectionHeading title="Taxas adicionais" description="Inclua custos extras, quando aplicável." />
-              <button type="button" onClick={() => setFees((current) => [...current, { name: "", amount: "", chargeType: "PER_ORDER", required: false, active: true }])} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] px-4 py-2.5 text-sm text-[#946f3d] hover:bg-[#faf7f2]"><Plus size={16} /> Adicionar taxa</button>
+              <SectionHeading title="Taxas adicionais" />
+              <button type="button" onClick={() => setFees((current) => [...current, { name: "", amount: "", chargeType: "PER_ORDER", required: false, active: true }])} className="inline-flex items-center gap-2 rounded-xl border border-[#e2d7c9] px-4 py-2.5 text-sm text-[#946f3d] hover:bg-[#faf7f2]"><Plus size={16} /> Add taxa</button>
             </div>
             {fees.length === 0 ? <p className="rounded-xl border border-dashed border-[#e5dbcf] p-5 text-center text-sm text-[#93877b]">Nenhuma taxa adicional cadastrada.</p> : (
               <div className="space-y-4">
