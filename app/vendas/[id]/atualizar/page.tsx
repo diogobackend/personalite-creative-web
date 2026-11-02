@@ -11,6 +11,23 @@ import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 type PaymentMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "BANK_SLIP";
 type Customer = { id: string; name: string; email?: string | null; cpf?: string | null; rg?: string | null; phone?: string | null };
 type Product = { id: string; name: string; commercialCode?: string | null; price: number | null; prices: { minimumQuantity: number; unitPrice: number }[] };
+
+type ProductCharacteristics = {
+  colors: string[];
+  sizes: string[];
+  materials: string[];
+  brands: string[];
+  models: string[];
+};
+
+const characteristicFields = [
+  { field: "color", source: "colors", label: "Cor" },
+  { field: "size", source: "sizes", label: "Tamanho" },
+  { field: "material", source: "materials", label: "Material" },
+  { field: "brand", source: "brands", label: "Marca" },
+  { field: "model", source: "models", label: "Modelo" },
+] as const;
+
 type SaleItemResponse = { id?: string; productId: string; inventoryId?: string | null; quantity: number; unitPrice: number | string; additionalAmount?: number | string | null; color?: string | null; size?: string | null; material?: string | null; brand?: string | null; model?: string | null };
 type SaleResponse = { id: string; customerId: string; deliveryDeadline?: string | null; deliveredAt?: string | null; totalAmount: number | string; downPaymentPercentage: number | string; paidPercentage: number | string; paymentMethod: PaymentMethod; observation?: string | null; items?: SaleItemResponse[], createdAt: string; };
 type SaleItemForm = { key: number; productId: string; inventoryId: string | null; quantity: number; unitPrice: string; adjustmentType: "discount" | "addition" | ""; adjustmentAmount: string; color: string; size: string; material: string; brand: string; model: string };
@@ -80,6 +97,57 @@ function EditSaleContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [itemsAvailable, setItemsAvailable] = useState(false);
   const [itemsChanged, setItemsChanged] = useState(false);
+
+  const [productCharacteristics, setProductCharacteristics] =
+  useState<Record<string, ProductCharacteristics>>({});
+
+const selectedProductIds = [...new Set(
+  (form?.items ?? []).map((item) => item.productId).filter(Boolean)
+)].sort().join(",");
+
+useEffect(() => {
+  if (!selectedProductIds) return;
+
+  const controller = new AbortController();
+
+  async function loadCharacteristics() {
+    const token = localStorage.getItem("access_token");
+
+    await Promise.all(
+      selectedProductIds.split(",").map(async (productId) => {
+        try {
+          const { data } = await api.get(`/products/${productId}`, {
+            signal: controller.signal,
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : undefined,
+          });
+
+          if (controller.signal.aborted) return;
+
+          const product = data.product ?? data;
+
+          setProductCharacteristics((current) => ({
+            ...current,
+            [productId]: {
+              colors: product.colors ?? [],
+              sizes: product.sizes ?? [],
+              materials: product.materials ?? [],
+              brands: product.brands ?? [],
+              models: product.models ?? [],
+            },
+          }));
+        } catch {
+          // Mantém os dados da venda quando a consulta falhar.
+        }
+      })
+    );
+  }
+
+  void loadCharacteristics();
+
+  return () => controller.abort();
+}, [selectedProductIds]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -284,9 +352,14 @@ function EditSaleContent() {
                 const listedPrice = tier?.unitPrice ?? product?.price;
 
                 updateItem(item.key, {
-                  productId,
-                  inventoryId: null,
-                  unitPrice: listedPrice != null && listedPrice > 0 ? String(listedPrice) : "",
+                    productId,
+                    inventoryId: null,
+                    unitPrice: listedPrice != null && listedPrice > 0 ? String(listedPrice) : "",
+                    color: "",
+                    size: "",
+                    material: "",
+                    brand: "",
+                    model: "",
                 });
 
                 if (productId && !(listedPrice != null && listedPrice > 0)) {
@@ -444,35 +517,63 @@ function EditSaleContent() {
           )}
         </div>
 
+        
         <details className="mt-4 border-t border-[#ece6dc] pt-3">
-          <summary className="cursor-pointer text-sm font-semibold text-[#927448]">
+        <summary className="cursor-pointer text-sm font-semibold text-[#927448]">
             Características do produto
-          </summary>
+        </summary>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(
-              [
-                ["color", "Cor"],
-                ["size", "Tamanho"],
-                ["material", "Material"],
-                ["brand", "Marca"],
-                ["model", "Modelo"],
-              ] as const
-            ).map(([field, label]) => (
-              <Field key={field} label={label}>
-                <input
-                  className={INPUT}
-                  value={item[field]}
-                  onChange={(event) =>
-                    updateItem(item.key, {
-                      [field]: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-            ))}
-          </div>
+        {(() => {
+            const characteristics = productCharacteristics[item.productId];
+
+            if (!characteristics) {
+            return (
+                <p className="mt-4 text-sm text-[#81766b]">
+                Carregando características...
+                </p>
+            );
+            }
+
+            const availableFields = characteristicFields.filter(
+            ({ source }) => characteristics[source].length > 0
+            );
+
+            if (availableFields.length === 0) {
+            return (
+                <p className="mt-4 text-sm text-[#81766b]">
+                Nenhuma característica cadastrada nesse produto.
+                </p>
+            );
+            }
+
+            return (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {availableFields.map(({ field, source, label }) => (
+                <Field key={field} label={label}>
+                    <select
+                    className={INPUT}
+                    value={item[field]}
+                    onChange={(event) =>
+                        updateItem(item.key, {
+                        [field]: event.target.value,
+                        })
+                    }
+                    >
+                    <option value="">Selecione (opcional)</option>
+
+                    {characteristics[source].map((value) => (
+                        <option key={value} value={value}>
+                        {value}
+                        </option>
+                    ))}
+                    </select>
+                </Field>
+                ))}
+            </div>
+            );
+        })()}
         </details>
+
       </div>
     ))}
   </div>
