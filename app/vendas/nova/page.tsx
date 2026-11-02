@@ -326,7 +326,7 @@ export default function NewSalePage() {
             <button type="button" onClick={() => setForm((previous) => ({
               ...previous,
               items: [...previous.items, createSaleItem(Math.max(-1, ...previous.items.map((item) => item.key)) + 1)],
-            }))} className="inline-flex items-center gap-2 rounded-xl border border-[#d9c4a4] bg-white px-4 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f4ede2]"><Plus size={16} />Adicionar produto</button>
+            }))} className="inline-flex items-center gap-2 rounded-xl border border-[#d9c4a4] bg-white px-4 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f4ede2]"><Plus size={16} />Add mais produtos</button>
           </div>
 
           <div className="mt-6 space-y-3">
