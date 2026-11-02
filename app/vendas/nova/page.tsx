@@ -301,7 +301,6 @@ export default function NewSalePage() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-medium text-[#927448] transition hover:text-[#725934]"><ArrowLeft size={16} />Voltar para vendas</Link>
-            <h1 className="mt-3 font-serif text-3xl text-[#342d27] sm:text-4xl">Nova venda</h1>
           </div>
           <button type="submit" disabled={saving || loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Registrar"}
@@ -309,6 +308,17 @@ export default function NewSalePage() {
         </div>
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">{error}</div>}
+
+        <Field label="Cliente" required>
+            <SearchSelect
+              items={customers}
+              value={form.customerId}
+              onChange={(id) => updateForm("customerId", id)}
+              placeholder={loading ? "Carregando clientes..." : "Digite o nome do cliente..."}
+              getSearchText={(customer) => customer.name}
+              renderOption={(customer) => customerLabel(customer)}
+            />
+          </Field>
 
         <section className="rounded-2xl border border-[#d9c4a4] bg-[#f8f2e8] p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -460,17 +470,6 @@ export default function NewSalePage() {
         </section>
 
         <div className="space-y-5">
-          <Field label="Cliente" required>
-            <SearchSelect
-              items={customers}
-              value={form.customerId}
-              onChange={(id) => updateForm("customerId", id)}
-              placeholder={loading ? "Carregando clientes..." : "Digite o nome do cliente..."}
-              getSearchText={(customer) => customer.name}
-              renderOption={(customer) => customerLabel(customer)}
-            />
-          </Field>
-
           <div>
             <p className={LABEL_CLASS}>Tem prazo de entrega?</p>
             <div className="flex flex-wrap gap-3">
