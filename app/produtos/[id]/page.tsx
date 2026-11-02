@@ -43,6 +43,11 @@ type Product = {
   active: boolean;
   prices: ProductPrice[];
   fees: ProductFee[];
+  colors: string[];
+  sizes: string[];
+  brands: string[];
+  models: string[];
+  materials: string[];
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -414,107 +419,54 @@ function ProductDetailsContent() {
         </Section>
 
         
- <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-[#342d27]">Estoque ({inventoryItems.length})</h3>
-            <Link href="/estoque/novo" className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448]">
-              <Plus className="h-4 w-4" /> Novo item
-            </Link>
+        {([
+  ["Cores", product.colors],
+  ["Tamanhos", product.sizes],
+  ["Marcas", product.brands],
+  ["Modelos", product.models],
+  ["Materiais", product.materials],
+] as [string, string[] | undefined][])
+  .some(([, values]) => values?.some((value) => value.trim())) && (
+  <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
+    <h3 className="mb-5 text-sm font-semibold text-[#342d27]">
+      Características
+    </h3>
+
+    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {([
+        ["Cores", product.colors],
+        ["Tamanhos", product.sizes],
+        ["Marcas", product.brands],
+        ["Modelos", product.models],
+        ["Materiais", product.materials],
+      ] as [string, string[] | undefined][])
+        .filter(([, values]) => values?.some((value) => value.trim()))
+        .map(([label, values]) => (
+          <div
+            key={label}
+            className="rounded-xl border border-[#eee8df] bg-white px-4 py-4"
+          >
+            <dt className="mb-3 text-xs font-semibold text-stone-600">
+              {label}
+            </dt>
+
+            <dd className="flex flex-wrap gap-2">
+              {values
+                ?.filter((value) => value.trim())
+                .map((value, index) => (
+                  <span
+                    key={`${value}-${index}`}
+                    className="rounded-lg border border-[#e8d9c4] bg-[#f8f3eb] px-3 py-1.5 text-sm text-[#51473d]"
+                  >
+                    {value}
+                  </span>
+                ))}
+            </dd>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-            <label className="block text-xs font-semibold text-stone-600">
-              Nome
-              <input type="search" value={inventoryName} onChange={(event) => setInventoryName(event.target.value)} placeholder="Buscar pelo nome do produto" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Data de cadastro — de
-              <input type="date" value={inventoryDateFrom} onChange={(event) => setInventoryDateFrom(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-            <label className="block text-xs font-semibold text-stone-600">
-              Data de cadastro — até
-              <input type="date" value={inventoryDateTo} onChange={(event) => setInventoryDateTo(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-            </label>
-          </div>
-
-          <details className="group mt-4">
-            <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
-              <span aria-hidden="true">☰</span> Filtros avançados
-              {(inventorySku || inventoryVariationFilter || inventoryMinQuantity || inventoryMaxQuantity) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
-              <span className="transition-transform group-open:rotate-180">⌄</span>
-            </summary>
-            <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block text-xs font-semibold text-stone-600">SKU
-                <input type="search" value={inventorySku} onChange={(event) => setInventorySku(event.target.value)} placeholder="Buscar SKU" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-              </label>
-              <label className="block text-xs font-semibold text-stone-600">Variação
-                <input type="search" value={inventoryVariationFilter} onChange={(event) => setInventoryVariationFilter(event.target.value)} placeholder="Cor, tamanho, material..." className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-              </label>
-              <label className="block text-xs font-semibold text-stone-600">Qtd mínima disponível
-                <input type="number" min="0" step="1" value={inventoryMinQuantity} onChange={(event) => setInventoryMinQuantity(event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-              </label>
-              <label className="block text-xs font-semibold text-stone-600">Qtd máxima disponível
-                <input type="number" min="0" step="1" value={inventoryMaxQuantity} onChange={(event) => setInventoryMaxQuantity(event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
-              </label>
-            </div>
-          </details>
-
-          {inventoryLoading ? (
-            <p className="mt-5 rounded-xl border border-[#eee8df] bg-white p-5 text-sm text-stone-500">Carregando estoque...</p>
-          ) : inventoryError ? (
-            <div className="mt-5 rounded-xl border border-red-100 bg-white p-5 text-sm text-red-700">
-              {inventoryError}
-              <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="ml-3 font-semibold underline">Tentar novamente</button>
-            </div>
-          ) : (
-            <div className="mt-5 overflow-x-auto rounded-xl border border-[#eee8df] bg-white">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-[#faf9f7] text-xs text-stone-500">
-                  <tr>
-                    <th className="px-4 py-3">Item</th>
-                    <th className="px-4 py-3">SKU</th>
-                    <th className="px-4 py-3">Variação</th>
-                    <th className="px-4 py-3">Qtd disponível</th>
-                    <th className="px-4 py-3">Qtd mínima</th>
-                    <th className="px-4 py-3 text-right">Visualizar / Editar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f0ece5]">
-                  {filteredInventory.map((item) => {
-                    const variation = inventoryVariation(item);
-                    return (
-                      <tr key={item.id} className="odd:bg-white even:bg-[#e9e3da] transition-colors hover:!bg-[#ded3c4]">
-                        <td className="px-4 py-4 font-medium text-[#342d27]">
-                          <Link
-                            href={`/estoque/$${encodeURIComponent(item.id)}`}
-                            className="hover:text-[#a98a58] hover:underline"
-                          >
-                            {product.name}
-                          </Link>
-                        </td>
-                              <td className="px-4 py-4 text-[#51473d]">{display(item.sku)}</td>
-                        <td className="max-w-[260px] px-4 py-4 text-[#51473d]" title={variation}>
-                          <span className="block max-w-[260px] truncate">{variation}</span>
-                        </td>
-                        <td className="px-4 py-4 font-semibold text-[#342d27]">{number.format(item.quantity)}</td>
-                        <td className="px-4 py-4 text-[#51473d]">{item.minimumQuantity == null ? "—" : number.format(item.minimumQuantity)}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link href={`/estoque/${encodeURIComponent(item.id)}`} title="Visualizar item" aria-label={`Visualizar ${product.name}`} className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Eye size={17} /></Link>
-                            <Link href={`/estoque/${encodeURIComponent(item.id)}/editar`} title="Editar item" aria-label={`Editar ${product.name}`} className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Pencil size={17} /></Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredInventory.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">Nenhum item de estoque encontrado.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        ))}
+    </dl>
+  </section>
+)}
 
 <div className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
   <section>
@@ -708,7 +660,109 @@ function ProductDetailsContent() {
   </section>
 </div>
 
-      </div> : null}
+
+
+ <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-[#342d27]">Estoque ({inventoryItems.length})</h3>
+            <Link href="/estoque/novo" className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448]">
+              <Plus className="h-4 w-4" /> Novo item
+            </Link>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
+            <label className="block text-xs font-semibold text-stone-600">
+              Nome
+              <input type="search" value={inventoryName} onChange={(event) => setInventoryName(event.target.value)} placeholder="Buscar pelo nome do produto" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+            </label>
+            <label className="block text-xs font-semibold text-stone-600">
+              Data de cadastro — de
+              <input type="date" value={inventoryDateFrom} onChange={(event) => setInventoryDateFrom(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+            </label>
+            <label className="block text-xs font-semibold text-stone-600">
+              Data de cadastro — até
+              <input type="date" value={inventoryDateTo} onChange={(event) => setInventoryDateTo(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+            </label>
+          </div>
+
+          <details className="group mt-4">
+            <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
+              <span aria-hidden="true">☰</span> Filtros avançados
+              {(inventorySku || inventoryVariationFilter || inventoryMinQuantity || inventoryMaxQuantity) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
+              <span className="transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+            <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block text-xs font-semibold text-stone-600">SKU
+                <input type="search" value={inventorySku} onChange={(event) => setInventorySku(event.target.value)} placeholder="Buscar SKU" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Variação
+                <input type="search" value={inventoryVariationFilter} onChange={(event) => setInventoryVariationFilter(event.target.value)} placeholder="Cor, tamanho, material..." className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Qtd mínima disponível
+                <input type="number" min="0" step="1" value={inventoryMinQuantity} onChange={(event) => setInventoryMinQuantity(event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Qtd máxima disponível
+                <input type="number" min="0" step="1" value={inventoryMaxQuantity} onChange={(event) => setInventoryMaxQuantity(event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              </label>
+            </div>
+          </details>
+
+          {inventoryLoading ? (
+            <p className="mt-5 rounded-xl border border-[#eee8df] bg-white p-5 text-sm text-stone-500">Carregando estoque...</p>
+          ) : inventoryError ? (
+            <div className="mt-5 rounded-xl border border-red-100 bg-white p-5 text-sm text-red-700">
+              {inventoryError}
+              <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="ml-3 font-semibold underline">Tentar novamente</button>
+            </div>
+          ) : (
+            <div className="mt-5 overflow-x-auto rounded-xl border border-[#eee8df] bg-white">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-[#faf9f7] text-xs text-stone-500">
+                  <tr>
+                    <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3">SKU</th>
+                    <th className="px-4 py-3">Variação</th>
+                    <th className="px-4 py-3">Qtd disponível</th>
+                    <th className="px-4 py-3">Qtd mínima</th>
+                    <th className="px-4 py-3 text-right">Visualizar / Editar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0ece5]">
+                  {filteredInventory.map((item) => {
+                    const variation = inventoryVariation(item);
+                    return (
+                      <tr key={item.id} className="odd:bg-white even:bg-[#e9e3da] transition-colors hover:!bg-[#ded3c4]">
+                        <td className="px-4 py-4 font-medium text-[#342d27]">
+                          <Link
+                            href={`/estoque/$${encodeURIComponent(item.id)}`}
+                            className="hover:text-[#a98a58] hover:underline"
+                          >
+                            {product.name}
+                          </Link>
+                        </td>
+                              <td className="px-4 py-4 text-[#51473d]">{display(item.sku)}</td>
+                        <td className="max-w-[260px] px-4 py-4 text-[#51473d]" title={variation}>
+                          <span className="block max-w-[260px] truncate">{variation}</span>
+                        </td>
+                        <td className="px-4 py-4 font-semibold text-[#342d27]">{number.format(item.quantity)}</td>
+                        <td className="px-4 py-4 text-[#51473d]">{item.minimumQuantity == null ? "—" : number.format(item.minimumQuantity)}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link href={`/estoque/${encodeURIComponent(item.id)}`} title="Visualizar item" aria-label={`Visualizar ${product.name}`} className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Eye size={17} /></Link>
+                            <Link href={`/estoque/${encodeURIComponent(item.id)}/editar`} title="Editar item" aria-label={`Editar ${product.name}`} className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Pencil size={17} /></Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredInventory.length === 0 && (
+                    <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">Nenhum item de estoque encontrado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>      </div> : null}
     </div>
   </DashboardLayout>;
 }
