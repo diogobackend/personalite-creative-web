@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,11 +6,10 @@ import axios from "axios";
 import { ArrowLeft, Loader2, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
-
 type PaymentMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "BANK_SLIP";
 type Customer = { id: string; name: string; email?: string | null; cpf?: string | null; rg?: string | null; phone?: string | null };
 type PriceTier = { minimumQuantity: number; unitPrice: number };
-type Product = { id: string; name: string; commercialCode?: string | null; price?: number | null; prices: PriceTier[] };
+type Product = { id: string; name: string; commercialCode?: string | null; price?: number | null; prices: PriceTier[]; colors?: string[]; sizes?: string[]; materials?: string[]; brands?: string[]; models?: string[] };
 type SaleItemForm = {
   key: number;
   productId: string;
@@ -24,7 +22,6 @@ type SaleItemForm = {
   brand: string;
   model: string;
 };
-
 const createSaleItem = (key: number): SaleItemForm => ({
   key, productId: "", quantity: 1,
   adjustmentType: "" as SaleItemForm["adjustmentType"], adjustmentAmount: "",
@@ -40,7 +37,6 @@ type SaleForm = {
   observation: string;
   items: SaleItemForm[];
 };
-
 const INPUT_CLASS = "w-full rounded-xl border border-[#e8e0d4] bg-white px-4 py-3 text-sm text-[#342d27] outline-none transition placeholder:text-[#aaa197] focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
 const LABEL_CLASS = "mb-2 block text-sm font-semibold text-[#51473d]";
 const SECTION_CLASS = "rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6";
@@ -52,11 +48,9 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: "BANK_TRANSFER", label: "Transferência bancária" },
   { value: "BANK_SLIP", label: "Boleto" },
 ];
-
 function Field({ label, required = false, children }: { label: string; required?: boolean; children: ReactNode }) {
   return <div><label className={LABEL_CLASS}>{label}{required && <span className="ml-1 text-red-500">*</span>}</label>{children}</div>;
 }
-
 function SearchSelect<T extends { id: string; name: string }>({
   items, value, onChange, placeholder, renderOption, getSearchText,
 }: {
@@ -72,7 +66,6 @@ function SearchSelect<T extends { id: string; name: string }>({
   const selected = items.find((item) => item.id === value);
   const filtered = items.filter((item) => (getSearchText?.(item) ?? item.name)
     .toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")));
-
   return (
     <div className="relative">
       <input
@@ -104,11 +97,9 @@ function SearchSelect<T extends { id: string; name: string }>({
     </div>
   );
 }
-
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
-
 function customerLabel(customer: Customer): string {
   const identifiers = [
     customer.email && !/^\d/.test(customer.email) ? customer.email : null,
@@ -120,10 +111,8 @@ function customerLabel(customer: Customer): string {
       typeof value === "string" && value.trim().length > 0
     )
     .slice(0, 2);
-
   return [customer.name, ...identifiers].join(" — ");
 }
-
 function toNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim()) {
@@ -132,7 +121,6 @@ function toNumber(value: unknown): number | null {
   }
   return null;
 }
-
 function getUnitPrice(product: Product | undefined, quantity: number): number | null {
   if (!product) return null;
   const tiers = [...product.prices].sort((a, b) => a.minimumQuantity - b.minimumQuantity);
@@ -141,12 +129,10 @@ function getUnitPrice(product: Product | undefined, quantity: number): number | 
   const applicable = tiers.filter((tier) => quantity >= tier.minimumQuantity);
   return (applicable.at(-1) ?? tiers[0]).unitPrice;
 }
-
 function getAdditionalAmount(item: SaleItemForm): number {
   const amount = Number(item.adjustmentAmount) || 0;
   return item.adjustmentType === "discount" ? -amount : amount;
 }
-
 export default function NewSalePage() {
   const router = useRouter();
   const [form, setForm] = useState<SaleForm>({
@@ -164,16 +150,13 @@ export default function NewSalePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const updateForm = <K extends keyof SaleForm>(field: K, value: SaleForm[K]) =>
     setForm((previous) => ({ ...previous, [field]: value }));
-
   const updateItem = (key: number, patch: Partial<Omit<SaleItemForm, "key">>) =>
     setForm((previous) => ({
       ...previous,
       items: previous.items.map((item) => item.key === key ? { ...item, ...patch } : item),
     }));
-
   useEffect(() => {
     const controller = new AbortController();
     async function loadOptions() {
@@ -203,10 +186,12 @@ export default function NewSalePage() {
         setProducts((Array.isArray(productsData) ? productsData : []).map((product: {
           id: string; name: string; commercialCode?: string; code?: string; price?: number | string;
           salePrice?: number | string; sellingPrice?: number | string; prices?: { minimumQuantity: number; unitPrice: number | string }[];
+            colors?: string[]; sizes?: string[]; materials?: string[]; brands?: string[]; models?: string[];
         }) => ({
           id: product.id,
           name: product.name,
           commercialCode: product.commercialCode ?? product.code,
+            colors: product.colors ?? [], sizes: product.sizes ?? [], materials: product.materials ?? [], brands: product.brands ?? [], models: product.models ?? [],
           price: toNumber(product.salePrice ?? product.sellingPrice ?? product.price),
           prices: (product.prices ?? []).map((tier) => ({
             minimumQuantity: tier.minimumQuantity, unitPrice: toNumber(tier.unitPrice) ?? 0,
@@ -222,13 +207,11 @@ export default function NewSalePage() {
     void loadOptions();
     return () => controller.abort();
   }, []);
-
   const total = form.items.reduce((sum, item) => {
     const price = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
     return sum + price * item.quantity + getAdditionalAmount(item);
   }, 0);
   const paidPercentage = Number(form.paidPercentage);
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -247,7 +230,6 @@ export default function NewSalePage() {
     if (!Number.isFinite(paidPercentage) || paidPercentage < 0 || paidPercentage > 100) {
       setError("O percentual já pago deve estar entre 0 e 100."); return;
     }
-
     if (form.items.some((item) => {
       const unitPrice = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
       const rawAdjustment = item.adjustmentAmount.trim();
@@ -257,7 +239,6 @@ export default function NewSalePage() {
       setError("O produto precisa ser vendido com um valor positivo");
       return;
     }
-
     setSaving(true);
     try {
       const token = localStorage.getItem("access_token");
@@ -294,7 +275,6 @@ export default function NewSalePage() {
       setSaving(false);
     }
   };
-
   return (
     <DashboardLayout>
       <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6 pb-10">
@@ -306,9 +286,7 @@ export default function NewSalePage() {
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Registrar"}
           </button>
         </div>
-
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">{error}</div>}
-
         <Field label="Cliente" required>
             <SearchSelect
               items={customers}
@@ -319,8 +297,6 @@ export default function NewSalePage() {
               renderOption={(customer) => customerLabel(customer)}
             />
           </Field>
-
-        
 <section className="rounded-2xl border border-[#d9c4a4] bg-[#f8f2e8] p-5 shadow-sm sm:p-6">
   <div className="mt-6 space-y-3">
     {form.items.map((item, index) => {
@@ -328,7 +304,6 @@ export default function NewSalePage() {
       const unitPrice = getUnitPrice(product, item.quantity) ?? 0;
       const additionalAmount = getAdditionalAmount(item);
       const itemTotal = unitPrice * item.quantity + additionalAmount;
-
       return (
         <div key={item.key} className="rounded-xl border border-[#e8ddcb] bg-white p-4">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
@@ -336,7 +311,7 @@ export default function NewSalePage() {
               <SearchSelect
                 items={products}
                 value={item.productId}
-                onChange={(productId) => updateItem(item.key, { productId })}
+                onChange={(productId) => updateItem(item.key, { productId, color: "", size: "", material: "", brand: "", model: "" })}
                 placeholder={loading ? "Carregando produtos..." : "Nome ou código comercial..."}
                 getSearchText={(entry) => `${entry.name} ${entry.commercialCode ?? ""}`}
                 renderOption={(entry) => (
@@ -351,7 +326,6 @@ export default function NewSalePage() {
                 )}
               />
             </Field>
-
             <Field label="Qtd">
               <div className="flex h-[46px] items-center justify-between rounded-xl border border-[#e8e0d4] bg-white">
                 <button
@@ -382,7 +356,6 @@ export default function NewSalePage() {
                 </button>
               </div>
             </Field>
-
             <div>
               <p className={LABEL_CLASS}>Valor</p>
               <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">
@@ -394,7 +367,6 @@ export default function NewSalePage() {
                 </p>
               )}
             </div>
-
             <button
               type="button"
               title="Remover produto"
@@ -410,14 +382,11 @@ export default function NewSalePage() {
               <Trash2 size={18} />
             </button>
           </div>
-
-          
 {item.productId && (
   <details className="mt-4 border-t border-[#ece6dc] pt-3">
     <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
       Add acrésimo ou desconto
     </summary>
-
     <div className="mt-4 flex flex-wrap items-center gap-3">
       <div className="inline-flex rounded-xl border border-[#e8e0d4] bg-[#faf8f5] p-1">
         {([
@@ -440,7 +409,6 @@ export default function NewSalePage() {
           </button>
         ))}
       </div>
-
       <div className="relative w-40">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#81766b]">
           R$
@@ -452,7 +420,6 @@ export default function NewSalePage() {
           value={item.adjustmentAmount}
           onChange={(event) => {
             const value = event.target.value;
-
             if (value === "" || (/^\d*\.?\d*$/.test(value) && Number(value) >= 0)) {
               updateItem(item.key, { adjustmentAmount: value });
             }
@@ -463,7 +430,7 @@ export default function NewSalePage() {
             }
           }}
           onPaste={(event) => {
-            if (/[+\-eE]/.test(event.clipboardData.getData("text"))) {
+            if (/[+\\-eE]/.test(event.clipboardData.getData("text"))) {
               event.preventDefault();
             }
           }}
@@ -474,39 +441,48 @@ export default function NewSalePage() {
     </div>
   </details>
 )}
-
-
-          {item.productId && (
-            <details className="mt-4 border-t border-[#ece6dc] pt-3">
-              <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
-                Add características
-              </summary>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {([
-                  ["color", "Cor"],
-                  ["size", "Tamanho"],
-                  ["material", "Material"],
-                  ["brand", "Marca"],
-                  ["model", "Modelo"],
-                ] as const).map(([field, label]) => (
-                  <Field key={field} label={label}>
-                    <input
-                      type="text"
-                      value={item[field]}
-                      onChange={(event) => updateItem(item.key, { [field]: event.target.value })}
-                      className={INPUT_CLASS}
-                      placeholder={`${label} (opcional)`}
-                    />
-                  </Field>
-                ))}
-              </div>
-            </details>
-          )}
+                     {item.productId && (
+             <details className="mt-4 border-t border-[#ece6dc] pt-3">
+               <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
+                 Add características
+               </summary>
+               {(() => {
+                 const fields = ([
+                   ["color", "Cor", product?.colors ?? []],
+                   ["size", "Tamanho", product?.sizes ?? []],
+                   ["material", "Material", product?.materials ?? []],
+                   ["brand", "Marca", product?.brands ?? []],
+                   ["model", "Modelo", product?.models ?? []],
+                 ] as const).filter(([, , options]) => options.length > 0);
+                 return fields.length === 0 ? (
+                   <p className="mt-4 text-sm text-[#81766b]">
+                     Nenhuma característica cadastrada nesse produto.
+                   </p>
+                 ) : (
+                   <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                     {fields.map(([field, label, options]) => (
+                       <Field key={field} label={label}>
+                         <select
+                           value={item[field]}
+                           onChange={(event) => updateItem(item.key, { [field]: event.target.value })}
+                           className={INPUT_CLASS}
+                         >
+                           <option value="">Selecione (opcional)</option>
+                           {options.map((option) => (
+                             <option key={option} value={option}>{option}</option>
+                           ))}
+                         </select>
+                       </Field>
+                     ))}
+                   </div>
+                 );
+               })()}
+             </details>
+           )}
         </div>
       );
     })}
   </div>
-
   <div className="mt-3 flex justify-end">
     <button
       type="button"
@@ -525,7 +501,6 @@ export default function NewSalePage() {
       Add mais produtos ao carrinho
     </button>
   </div>
-
   <div className="mt-5">
     <Field label="Observação">
       <textarea
@@ -537,7 +512,6 @@ export default function NewSalePage() {
       />
     </Field>
   </div>
-
   <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e2cfb3] bg-[#efe2cd] px-5 py-4">
     <span className="text-sm font-semibold text-[#51473d]">Total</span>
     <span className="text-xl font-bold text-[#342d27]">
@@ -545,8 +519,6 @@ export default function NewSalePage() {
     </span>
   </div>
 </section>
-
-
         <div className="space-y-5">
           <div>
             <p className={LABEL_CLASS}>Tem prazo de entrega?</p>
@@ -561,7 +533,6 @@ export default function NewSalePage() {
             {form.hasDeliveryDeadline && <div className="mt-4 max-w-sm"><Field label="Data de entrega" required><input type="date" required value={form.deliveryDeadline} onChange={(event) => updateForm("deliveryDeadline", event.target.value)} className={INPUT_CLASS} /></Field></div>}
           </div>
         </div>
-
         <section className={SECTION_CLASS}>
           <h2 className="text-lg font-semibold text-[#342d27]">Pagamento</h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-3">
@@ -590,21 +561,18 @@ export default function NewSalePage() {
     <p className="text-[#81766b]">Total</p>
     <p className="mt-1 font-bold text-[#342d27]">{formatCurrency(total)}</p>
   </div>
-
   <div>
     <p className="text-[#81766b]">Entrada</p>
     <p className="mt-1 font-bold text-[#342d27]">
       {formatCurrency(total * Number(form.downPaymentPercentage) / 100)}
     </p>
   </div>
-
   <div>
     <p className="text-[#81766b]">Já pago</p>
     <p className="mt-1 font-bold text-[#342d27]">
       {formatCurrency(total * paidPercentage / 100)}
     </p>
   </div>
-
   <div>
     <p className="text-[#81766b]">Faltam</p>
     <p className="mt-1 font-bold text-[#342d27]">
@@ -613,7 +581,6 @@ export default function NewSalePage() {
   </div>
 </div>
         </section>
-
         <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <Link href="/vendas" className="inline-flex items-center justify-center rounded-xl border border-[#e8e0d4] bg-white px-6 py-3 text-sm font-semibold text-[#51473d] transition hover:bg-[#f8f5f0]">Cancelar</Link>
           <button type="submit" disabled={saving || loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60">{saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Registrar"}</button>
