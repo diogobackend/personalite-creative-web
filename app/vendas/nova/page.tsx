@@ -320,154 +320,232 @@ export default function NewSalePage() {
             />
           </Field>
 
-        <section className="rounded-2xl border border-[#d9c4a4] bg-[#f8f2e8] p-5 shadow-sm sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            
-            <button type="button" onClick={() => setForm((previous) => ({
-              ...previous,
-              items: [...previous.items, createSaleItem(Math.max(-1, ...previous.items.map((item) => item.key)) + 1)],
-            }))} className="inline-flex items-center gap-2 rounded-xl border border-[#d9c4a4] bg-white px-4 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f4ede2]"><Plus size={16} />Add mais produtos</button>
-          </div>
+        
+<section className="rounded-2xl border border-[#d9c4a4] bg-[#f8f2e8] p-5 shadow-sm sm:p-6">
+  <div className="mt-6 space-y-3">
+    {form.items.map((item, index) => {
+      const product = products.find((entry) => entry.id === item.productId);
+      const unitPrice = getUnitPrice(product, item.quantity) ?? 0;
+      const additionalAmount = getAdditionalAmount(item);
+      const itemTotal = unitPrice * item.quantity + additionalAmount;
 
-          <div className="mt-6 space-y-3">
-            {form.items.map((item, index) => {
-              const product = products.find((entry) => entry.id === item.productId);
-              const unitPrice = getUnitPrice(product, item.quantity) ?? 0;
-              const additionalAmount = getAdditionalAmount(item);
-              const itemTotal = unitPrice * item.quantity + additionalAmount;
-              return (
-                <div key={item.key} className="rounded-xl border border-[#e8ddcb] bg-white p-4">
-                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
-                  <Field label={`Produto ${index + 1}`} required>
-                    <SearchSelect
-                      items={products}
-                      value={item.productId}
-                      onChange={(productId) => updateItem(item.key, { productId })}
-                      placeholder={loading ? "Carregando produtos..." : "Nome ou código comercial..."}
-                      getSearchText={(entry) => `${entry.name} ${entry.commercialCode ?? ""}`}
-                      renderOption={(entry) => <span>{entry.name}{entry.commercialCode && <span className="ml-2 text-xs text-[#81766b]">{entry.commercialCode}</span>}</span>}
-                    />
-                  </Field>
-                  <Field label="Qtd">
-                    <div className="flex h-[46px] items-center justify-between rounded-xl border border-[#e8e0d4] bg-white">
-                      <button type="button" aria-label="Diminuir quantidade" disabled={item.quantity <= 1} onClick={() => updateItem(item.key, { quantity: Math.max(1, item.quantity - 1) })} className="px-2 text-[#927448] disabled:opacity-30"><Minus size={16} /></button>
-                      <input type="number" min="1" step="1" aria-label="Quantidade" value={item.quantity} onChange={(event) => updateItem(item.key, { quantity: Number(event.target.value) })} className="w-12 bg-transparent text-center text-sm font-semibold text-[#342d27] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                      <button type="button" aria-label="Aumentar quantidade" onClick={() => updateItem(item.key, { quantity: item.quantity + 1 })} className="px-2 text-[#927448]"><Plus size={16} /></button>
-                    </div>
-                  </Field>
-                  <div>
-                    <p className={LABEL_CLASS}>Valor</p>
-                    <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">{formatCurrency(itemTotal)}</p>
-                    {product && <p className="text-xs text-[#81766b]">{formatCurrency(unitPrice)} / un.</p>}
-                  </div>
-                  <button type="button" title="Remover produto" disabled={form.items.length === 1} onClick={() => setForm((previous) => ({ ...previous, items: previous.items.filter((entry) => entry.key !== item.key) }))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 text-red-500 transition hover:bg-red-50 disabled:opacity-30"><Trash2 size={18} /></button>
-                  </div>
-                 
-                  {item.productId && (
-                    <div className="mt-4 border-t border-[#ece6dc] pt-4">
-                      <p className="mb-3 text-sm font-semibold text-[#51473d]">Ajuste de valor (opcional)</p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="inline-flex rounded-xl border border-[#e8e0d4] bg-[#faf8f5] p-1">
-                        {([
-                          { value: "discount", label: "Desconto −" },
-                          { value: "addition", label: "Acréscimo +" },
-                        ] as const).map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() =>
-                              updateItem(item.key, { adjustmentType: option.value })
-                            }
-                            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                            item.adjustmentType === option.value
-                              ? option.value === "discount"
-                                ? "!bg-red-500 !text-white shadow-sm"
-                                : "!bg-blue-600 !text-white shadow-sm"
-                              : "bg-transparent text-[#81766b] hover:text-[#51473d]"
-                          }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                        <div className="relative w-40">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#81766b]">R$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.adjustmentAmount}
-                            onChange={(event) => {
-                              const value = event.target.value;
-
-                              if (value === "" || (/^\d*\.?\d*$/.test(value) && Number(value) >= 0)) {
-                                updateItem(item.key, { adjustmentAmount: value });
-                              }
-                            }}
-                            onKeyDown={(event) => {
-                              if (["-", "+", "e", "E"].includes(event.key)) {
-                                event.preventDefault();
-                              }
-                            }}
-                            onPaste={(event) => {
-                              if (/[+\-eE]/.test(event.clipboardData.getData("text"))) {
-                                event.preventDefault();
-                              }
-                            }}
-                            placeholder="0,00"
-                            className={`${INPUT_CLASS} pl-11`}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                   {item.productId && (
-                    <details className="mt-4 border-t border-[#ece6dc] pt-3">
-                      <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
-                        Add características
-                      </summary>
-                      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {([
-                          ["color", "Cor"],
-                          ["size", "Tamanho"],
-                          ["material", "Material"],
-                          ["brand", "Marca"],
-                          ["model", "Modelo"],
-                        ] as const).map(([field, label]) => (
-                          <Field key={field} label={label}>
-                            <input
-                              type="text"
-                              value={item[field]}
-                              onChange={(event) => updateItem(item.key, { [field]: event.target.value })}
-                              className={INPUT_CLASS}
-                              placeholder={`${label} (opcional)`}
-                            />
-                          </Field>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-5">
-            <Field label="Observação">
-              <textarea
-                value={form.observation}
-                onChange={(event) => updateForm("observation", event.target.value)}
-                rows={3}
-                placeholder="Adicione observações sobre a venda, qualquer coisa..."
-                className={INPUT_CLASS}
+      return (
+        <div key={item.key} className="rounded-xl border border-[#e8ddcb] bg-white p-4">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_135px_44px] sm:items-end">
+            <Field label={`Produto ${index + 1}`} required>
+              <SearchSelect
+                items={products}
+                value={item.productId}
+                onChange={(productId) => updateItem(item.key, { productId })}
+                placeholder={loading ? "Carregando produtos..." : "Nome ou código comercial..."}
+                getSearchText={(entry) => `${entry.name} ${entry.commercialCode ?? ""}`}
+                renderOption={(entry) => (
+                  <span>
+                    {entry.name}
+                    {entry.commercialCode && (
+                      <span className="ml-2 text-xs text-[#81766b]">
+                        {entry.commercialCode}
+                      </span>
+                    )}
+                  </span>
+                )}
               />
             </Field>
+
+            <Field label="Qtd">
+              <div className="flex h-[46px] items-center justify-between rounded-xl border border-[#e8e0d4] bg-white">
+                <button
+                  type="button"
+                  aria-label="Diminuir quantidade"
+                  disabled={item.quantity <= 1}
+                  onClick={() => updateItem(item.key, { quantity: Math.max(1, item.quantity - 1) })}
+                  className="px-2 text-[#927448] disabled:opacity-30"
+                >
+                  <Minus size={16} />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  aria-label="Quantidade"
+                  value={item.quantity}
+                  onChange={(event) => updateItem(item.key, { quantity: Number(event.target.value) })}
+                  className="w-12 bg-transparent text-center text-sm font-semibold text-[#342d27] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  aria-label="Aumentar quantidade"
+                  onClick={() => updateItem(item.key, { quantity: item.quantity + 1 })}
+                  className="px-2 text-[#927448]"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </Field>
+
+            <div>
+              <p className={LABEL_CLASS}>Valor</p>
+              <p className="flex h-[46px] items-center text-sm font-semibold text-[#342d27]">
+                {formatCurrency(itemTotal)}
+              </p>
+              {product && (
+                <p className="text-xs text-[#81766b]">
+                  {formatCurrency(unitPrice)} / un.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              title="Remover produto"
+              disabled={form.items.length === 1}
+              onClick={() =>
+                setForm((previous) => ({
+                  ...previous,
+                  items: previous.items.filter((entry) => entry.key !== item.key),
+                }))
+              }
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 text-red-500 transition hover:bg-red-50 disabled:opacity-30"
+            >
+              <Trash2 size={18} />
+            </button>
           </div>
-          <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e2cfb3] bg-[#efe2cd] px-5 py-4">
-            <span className="text-sm font-semibold text-[#51473d]">Total</span>
-            <span className="text-xl font-bold text-[#342d27]">{formatCurrency(total)}</span>
-          </div>
-        </section>
+
+          
+{item.productId && (
+  <details className="mt-4 border-t border-[#ece6dc] pt-3">
+    <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
+      Add acrésimo ou desconto
+    </summary>
+
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="inline-flex rounded-xl border border-[#e8e0d4] bg-[#faf8f5] p-1">
+        {([
+          { value: "discount", label: "Desconto −" },
+          { value: "addition", label: "Acréscimo +" },
+        ] as const).map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => updateItem(item.key, { adjustmentType: option.value })}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              item.adjustmentType === option.value
+                ? option.value === "discount"
+                  ? "!bg-red-500 !text-white shadow-sm"
+                  : "!bg-blue-600 !text-white shadow-sm"
+                : "bg-transparent text-[#81766b] hover:text-[#51473d]"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="relative w-40">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#81766b]">
+          R$
+        </span>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={item.adjustmentAmount}
+          onChange={(event) => {
+            const value = event.target.value;
+
+            if (value === "" || (/^\d*\.?\d*$/.test(value) && Number(value) >= 0)) {
+              updateItem(item.key, { adjustmentAmount: value });
+            }
+          }}
+          onKeyDown={(event) => {
+            if (["-", "+", "e", "E"].includes(event.key)) {
+              event.preventDefault();
+            }
+          }}
+          onPaste={(event) => {
+            if (/[+\-eE]/.test(event.clipboardData.getData("text"))) {
+              event.preventDefault();
+            }
+          }}
+          placeholder="0,00"
+          className={`${INPUT_CLASS} pl-11`}
+        />
+      </div>
+    </div>
+  </details>
+)}
+
+
+          {item.productId && (
+            <details className="mt-4 border-t border-[#ece6dc] pt-3">
+              <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
+                Add características
+              </summary>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {([
+                  ["color", "Cor"],
+                  ["size", "Tamanho"],
+                  ["material", "Material"],
+                  ["brand", "Marca"],
+                  ["model", "Modelo"],
+                ] as const).map(([field, label]) => (
+                  <Field key={field} label={label}>
+                    <input
+                      type="text"
+                      value={item[field]}
+                      onChange={(event) => updateItem(item.key, { [field]: event.target.value })}
+                      className={INPUT_CLASS}
+                      placeholder={`${label} (opcional)`}
+                    />
+                  </Field>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      );
+    })}
+  </div>
+
+  <div className="mt-3 flex justify-end">
+    <button
+      type="button"
+      onClick={() =>
+        setForm((previous) => ({
+          ...previous,
+          items: [
+            ...previous.items,
+            createSaleItem(Math.max(-1, ...previous.items.map((item) => item.key)) + 1),
+          ],
+        }))
+      }
+      className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#927448]"
+    >
+      <Plus size={16} />
+      Add mais produtos ao carrinho
+    </button>
+  </div>
+
+  <div className="mt-5">
+    <Field label="Observação">
+      <textarea
+        value={form.observation}
+        onChange={(event) => updateForm("observation", event.target.value)}
+        rows={3}
+        placeholder="Adicione observações sobre a venda, qualquer coisa..."
+        className={INPUT_CLASS}
+      />
+    </Field>
+  </div>
+
+  <div className="mt-5 flex items-center justify-between rounded-xl border border-[#e2cfb3] bg-[#efe2cd] px-5 py-4">
+    <span className="text-sm font-semibold text-[#51473d]">Total</span>
+    <span className="text-xl font-bold text-[#342d27]">
+      {formatCurrency(total)}
+    </span>
+  </div>
+</section>
+
 
         <div className="space-y-5">
           <div>
