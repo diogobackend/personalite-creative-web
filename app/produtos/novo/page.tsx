@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout"
+import { getColor } from "../../../src/utils/colors";
 import { api } from "../../../src/lib/api"
 
 type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
@@ -241,10 +242,39 @@ export default function NovoProdutoPage() {
                   {characteristics[key].length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {characteristics[key].map((value) => (
-                        <span key={value} className="inline-flex items-center gap-2 rounded-lg border border-[#e6ded2] bg-[#faf8f5] px-3 py-1.5 text-sm text-[#51483f]">
-                          {value}
-                          <button type="button" onClick={() => removeCharacteristic(key, value)} aria-label={`Remover ${value}`} className="text-[#a66b55] hover:text-red-700"><Trash2 size={14} /></button>
-                        </span>
+                        <span
+                            key={value}
+                            className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"
+                            style={{
+                              backgroundColor:
+                                key === "colors"
+                                  ? getColor(value) ?? "#faf8f5"
+                                  : "#faf8f5",
+                                                      color:
+                          (label === "Cores" || key === "colors") && getColor(value)
+                            ? ["branco", "branca"].includes(value.trim().toLowerCase())
+                              ? "#000000"
+                              : "#FFFFFF"
+                            : "#342d27",
+                              borderColor: "#e6ded2",
+                            }}
+                          >
+                            {value}
+                            <button
+                              type="button"
+                              onClick={() => removeCharacteristic(key, value)}
+                              aria-label={`Remover ${value}`}
+                              className="text-[#a66b55] hover:text-red-700"
+                            >
+                              <Trash2 className={
+                            key === "colors" && getColor(value)
+                              ? ["branco", "branca"].includes(value.trim().toLowerCase())
+                                ? "text-black hover:text-red-700"
+                                : "text-white hover:text-red-200"
+                              : "text-[#a66b55] hover:text-red-700"
+                          } size={14} />
+                            </button>
+                          </span>
                       ))}
                     </div>
                   )}

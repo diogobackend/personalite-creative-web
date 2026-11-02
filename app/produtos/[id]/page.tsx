@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import axios from "axios";
 import { ArrowLeft, Package, Pencil, Plus , Eye } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
+import { getColor } from "../../../src/utils/colors";
 import { api } from "../../../src/lib/api";
 
 type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
@@ -455,11 +456,24 @@ function ProductDetailsContent() {
                 ?.filter((value) => value.trim())
                 .map((value, index) => (
                   <span
-                    key={`${value}-${index}`}
-                    className="rounded-lg border border-[#e8d9c4] bg-[#f8f3eb] px-3 py-1.5 text-sm text-[#51473d]"
-                  >
-                    {value}
-                  </span>
+                  key={`${value}-${index}`}
+                  className="rounded-lg border px-3 py-1.5 text-sm"
+                  style={{
+                  backgroundColor:
+                    label === "Cores"
+                      ? getColor(value) ?? "#f8f3eb"
+                      : "#f8f3eb",
+                  color:
+                    label === "Cores" && getColor(value)
+                      ? ["branco", "branca"].includes(value.trim().toLowerCase())
+                        ? "#000000"
+                        : "#FFFFFF"
+                      : "#342d27",
+                  borderColor: "#e8d9c4",
+                }}
+                >
+                  {value}
+                </span>
                 ))}
             </dd>
           </div>
