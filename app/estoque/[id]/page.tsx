@@ -174,6 +174,11 @@ function ExpenseHistory({ inventoryId }: { inventoryId: string }) {
   const total = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
   const statusLabels: Record<string, string> = { PAID: "Pago", PENDING: "Pendente", CANCELLED: "Cancelado" };
 
+  if (loadingExpenses || expenseError || expenses.length === 0) {
+  return null;
+}
+
+  
   return (
     <section className="rounded-2xl border border-[#e8d7bb] bg-[#f8f3ea] p-5 sm:p-6">
   <div className="flex flex-wrap items-center justify-between gap-4">

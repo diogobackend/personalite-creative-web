@@ -74,7 +74,21 @@ const UNIT_OPTIONS = [
   ["FOLHA", "Folha"],
 ] as const;
 
-const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG"] as const;
+type ProductCharacteristics = {
+  colors: string[] | null;
+  sizes: string[] | null;
+  materials: string[] | null;
+  brands: string[] | null;
+  models: string[] | null;
+};
+
+const CHARACTERISTIC_FIELDS = [
+  { field: "color", key: "colors", label: "Cor", placeholder: "Ex.: Branco" },
+  { field: "size", key: "sizes", label: "Tamanho", placeholder: "Ex.: 38, M, 22" },
+  { field: "material", key: "materials", label: "Material", placeholder: "Ex.: Algodão" },
+  { field: "brand", key: "brands", label: "Marca", placeholder: "Marca do item" },
+  { field: "model", key: "models", label: "Modelo", placeholder: "Modelo do item" },
+] as const;
 
 const INPUT_CLASS =
   "w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-2.5 text-sm text-[#342d27] outline-none transition focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
@@ -152,6 +166,7 @@ function EditarEstoqueContent() {
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [form, setForm] = useState<FormValues | null>(null);
   const [initialForm, setInitialForm] = useState<FormValues | null>(null);
+  const [productCharacteristics, setProductCharacteristics] = useState<ProductCharacteristics | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,8 +192,21 @@ function EditarEstoqueContent() {
           }
         );
 
+        let characteristics: ProductCharacteristics | null = null;
+        if (data.productId) {
+          const productResponse = await api.get<ProductCharacteristics>(
+            `/products/${encodeURIComponent(data.productId)}`,
+            {
+              signal: controller.signal,
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          characteristics = productResponse.data;
+        }
+
         if (controller.signal.aborted) return;
 
+        setProductCharacteristics(characteristics);
         const values = toFormValues(data);
 
         setInventory(data);
@@ -255,8 +283,11 @@ function EditarEstoqueContent() {
     for (const field of changedFields) {
       const value = form[field];
 
-      // O backend interpreta null como "manter o valor anterior".
-      // Portanto, campos vazios não são enviados.
+      // Para características, vazio significa remover o valor existente.
+      if (value === "" && CHARACTERISTIC_FIELDS.some(({ field: characteristic }) => characteristic === field)) {
+        payload[field] = "";
+        continue;
+      }
       if (value === "") continue;
 
       if (field === "quantity" || field === "minimumQuantity") {
@@ -268,7 +299,7 @@ function EditarEstoqueContent() {
 
     if (Object.keys(payload).length === 0) {
       setError(
-        "Nenhuma alteração válida para enviar. Campos vazios mantêm o valor anterior."
+        "Nenhuma alteração válida para enviar. Campos vazios não alteram os demais dados."
       );
       return;
     }
@@ -430,84 +461,66 @@ function EditarEstoqueContent() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-[#342d27]">
-                  Características do item
-                </h2>
-                <p className="mt-1 text-sm text-[#81766b]">
-                  Detalhes físicos e informações complementares.
-                </p>
-              </div>
+            {CHARACTERISTIC_FIELDS.some(({ key }) =>
+  !inventory.productId ||
+  productCharacteristics?.[key]?.some((value) => value?.trim())
+) && (
+  <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+    <div className="mb-6">
+      <h2 className="text-lg font-semibold text-[#342d27]">
+        Características do item
+      </h2>
+    </div>
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <label className={LABEL_CLASS}>
-                  Cor
-                  <input
-                    className={INPUT_CLASS}
-                    value={form.color}
-                    onChange={(event) =>
-                      updateField("color", event.target.value)
-                    }
-                    placeholder="Ex.: Branco"
-                  />
-                </label>
+    <div className="grid gap-5 sm:grid-cols-2">
+      {CHARACTERISTIC_FIELDS.map(({ field, key, label, placeholder }) => {
+        const linked = Boolean(inventory.productId);
 
-                <label className={LABEL_CLASS}>
-                  Tamanho
-                  <select
-                    className={INPUT_CLASS}
-                    value={form.size}
-                    onChange={(event) =>
-                      updateField("size", event.target.value)
-                    }
-                  >
-                    <option value="">Não informado</option>
-                    {SIZE_OPTIONS.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+        const options = Array.from(
+          new Set(
+            (productCharacteristics?.[key] ?? [])
+              .filter((value) => value?.trim())
+          )
+        );
 
-                <label className={LABEL_CLASS}>
-                  Material
-                  <input
-                    className={INPUT_CLASS}
-                    value={form.material}
-                    onChange={(event) =>
-                      updateField("material", event.target.value)
-                    }
-                    placeholder="Ex.: Algodão"
-                  />
-                </label>
+        if (linked && options.length === 0) return null;
 
-                <label className={LABEL_CLASS}>
-                  Marca
-                  <input
-                    className={INPUT_CLASS}
-                    value={form.brand}
-                    onChange={(event) =>
-                      updateField("brand", event.target.value)
-                    }
-                    placeholder="Marca do item"
-                  />
-                </label>
+        return (
+          <label key={field} className={LABEL_CLASS}>
+            {label}
 
-                <label className={LABEL_CLASS}>
-                  Modelo
-                  <input
-                    className={INPUT_CLASS}
-                    value={form.model}
-                    onChange={(event) =>
-                      updateField("model", event.target.value)
-                    }
-                    placeholder="Modelo do item"
-                  />
-                </label>
-              </div>
-            </section>
+            {linked ? (
+              <select
+                className={INPUT_CLASS}
+                value={form[field]}
+                onChange={(event) =>
+                  updateField(field, event.target.value)
+                }
+              >
+                <option value="">Inexistente</option>
+
+                {options.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className={INPUT_CLASS}
+                value={form[field]}
+                onChange={(event) =>
+                  updateField(field, event.target.value)
+                }
+                placeholder={placeholder}
+              />
+            )}
+          </label>
+        );
+      })}
+    </div>
+  </section>
+)}
 
             {error && (
               <div
