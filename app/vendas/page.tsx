@@ -184,17 +184,28 @@ const SORT_OPTIONS = [
   { value: "paidPercentage", label: "Percentual pago" },
 ];
 
-function buildParams(filters: Filters, page: number, size: number, sortBy: string, sortDirection: string) {
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value.trim()) params.set(key, value.trim());
-  });
-  params.set("page", String(page));
-  params.set("size", String(size));
-  params.set("sortBy", sortBy);
-  params.set("sortDirection", sortDirection);
-  return params;
-}
+    function buildParams(
+    filters: Filters,
+    page: number,
+    size: number,
+    sortBy: string,
+    sortDirection: string
+    ) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (!value.trim()) return;
+
+        params.set(key === "size" ? "itemSize" : key, value.trim());
+    });
+
+    params.set("page", String(page));
+    params.set("size", String(size));
+    params.set("sortBy", sortBy);
+    params.set("sortDirection", sortDirection);
+
+    return params;
+    }
 
 export default function SalesPageScreen() {
   const [draft, setDraft] = useState<Filters>({ ...EMPTY_FILTERS });
@@ -260,7 +271,6 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
     setError(null);
     try {
       const params = buildParams(applied, page, size, sortBy, sortDirection);
-params.delete("size");
       const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
       const response = await api.get<SalesResponse>(`/sales?${params.toString()}`, {
         signal,
