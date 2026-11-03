@@ -364,60 +364,85 @@ function ProductDetailsContent() {
         </Section>
 
         
-          <dl><Detail label="Descrição" value={display(product.description)} /></dl>
-      
+                {product.description?.trim() && (
+                  <dl>
+                    <Detail label="Descrição" value={product.description} />
+                  </dl>
+                )}
+            
 
-        <Section title="Quantidade, validade e produção">
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Detail label="Quantidade mínima" value={product.minimumQuantity == null ? "—" : number.format(product.minimumQuantity)} />
-            <Detail label="Validade (dias)" value={display(product.shelfLifeDays)} />
-            <Detail label="Prazo mínimo de produção (dias)" value={display(product.productionLeadTimeMinDays)} />
-            <Detail
-            label="Prazo máximo de produção (dias)"
-            value={product.productionLeadTimeMaxDays == null || product.productionLeadTimeMaxDays === 0
-                ? "—"
-                : display(product.productionLeadTimeMaxDays)}
-            />
-          </dl>
-        </Section>
+              {(
+              (product.minimumQuantity != null && product.minimumQuantity !== 0) ||
+              (product.shelfLifeDays != null && product.shelfLifeDays !== 0) ||
+              (product.productionLeadTimeMinDays != null && product.productionLeadTimeMinDays !== 0) ||
+              (product.productionLeadTimeMaxDays != null && product.productionLeadTimeMaxDays !== 0)
+            ) && (
+              <Section title="Informações adicionais">
+                <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {product.minimumQuantity != null && product.minimumQuantity !== 0 && (
+                    <Detail label="Quantidade mínima" value={number.format(product.minimumQuantity)} />
+                  )}
 
-        <Section title={`Faixas de preço (${product.prices?.length ?? 0})`}>
-          {product.prices?.length ? <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
-            <table className="w-full min-w-[740px] text-left text-sm">
-              <thead className="bg-[#faf9f7] text-xs text-stone-500"><tr>
-                <th className="px-4 py-3">Quantidade mínima</th>
-                <th className="px-4 py-3">Preço unitário</th>
-              </tr></thead>
-              <tbody className="divide-y divide-[#f0ece5]">
-                {product.prices.map((price) => <tr key={price.id}>
-                  <td className="px-4 py-4">{number.format(price.minimumQuantity)}</td>
-                  <td className="px-4 py-4 font-semibold">{currency.format(price.unitPrice)}</td>
-                </tr>)}
-              </tbody>
-            </table>
-          </div> : <p className="rounded-xl border border-[#eee8df] bg-[#fdfcfb] p-4 text-sm text-stone-500">Nenhuma faixa de preço cadastrada.</p>}
-        </Section>
+                  {product.shelfLifeDays != null && product.shelfLifeDays !== 0 && (
+                    <Detail label="Validade (dias)" value={display(product.shelfLifeDays)} />
+                  )}
 
-        <Section title={`Taxas adicionais (${product.fees?.length ?? 0})`}>
-          {product.fees?.length ? <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
+                  {product.productionLeadTimeMinDays != null && product.productionLeadTimeMinDays !== 0 && (
+                    <Detail label="Prazo mínimo de produção (dias)" value={display(product.productionLeadTimeMinDays)} />
+                  )}
+
+                  {product.productionLeadTimeMaxDays != null && product.productionLeadTimeMaxDays !== 0 && (
+                    <Detail label="Prazo máximo de produção (dias)" value={display(product.productionLeadTimeMaxDays)} />
+                  )}
+                </dl>
+            </Section>
+          )}
+
+              <Section title={`Faixas de preço (${product.prices?.length ?? 0})`}>
+                {product.prices?.length ? <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
+                  <table className="w-full min-w-[740px] text-left text-sm">
+                    <thead className="bg-[#faf9f7] text-xs text-stone-500"><tr>
+                      <th className="px-4 py-3">Quantidade mínima</th>
+                      <th className="px-4 py-3">Preço unitário</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-[#f0ece5]">
+                      {product.prices.map((price) => <tr key={price.id}>
+                        <td className="px-4 py-4">{number.format(price.minimumQuantity)}</td>
+                        <td className="px-4 py-4 font-semibold">{currency.format(price.unitPrice)}</td>
+                      </tr>)}
+                    </tbody>
+                  </table>
+                </div> : <p className="rounded-xl border border-[#eee8df] bg-[#fdfcfb] p-4 text-sm text-stone-500">Nenhuma faixa de preço cadastrada.</p>}
+              </Section>
+
+              {(product.fees?.length ?? 0) > 0 && (
+        <Section title={`Taxas adicionais (${product.fees!.length})`}>
+          <div className="overflow-x-auto rounded-xl border border-[#eee8df]">
             <table className="w-full min-w-[700px] text-left text-sm">
-              <thead className="bg-[#faf9f7] text-xs text-stone-500"><tr>
-                <th className="px-4 py-3">Nome</th><th className="px-4 py-3">Valor</th>
-                <th className="px-4 py-3">Tipo de cobrança</th><th className="px-4 py-3">Obrigatória</th>
-                <th className="px-4 py-3">Ativa</th>
-              </tr></thead>
+              <thead className="bg-[#faf9f7] text-xs text-stone-500">
+                <tr>
+                  <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">Valor</th>
+                  <th className="px-4 py-3">Tipo de cobrança</th>
+                  <th className="px-4 py-3">Obrigatória</th>
+                  <th className="px-4 py-3">Ativa</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-[#f0ece5]">
-                {product.fees.map((fee) => <tr key={fee.id}>
-                  <td className="px-4 py-4 font-medium">{display(fee.name)}</td>
-                  <td className="px-4 py-4 font-semibold">{currency.format(fee.amount)}</td>
-                  <td className="px-4 py-4">{chargeTypes[fee.chargeType] ?? fee.chargeType}</td>
-                  <td className="px-4 py-4">{yesNo(fee.required)}</td>
-                  <td className="px-4 py-4">{yesNo(fee.active)}</td>
-                </tr>)}
+                {product.fees!.map((fee) => (
+                  <tr key={fee.id}>
+                    <td className="px-4 py-4 font-medium">{display(fee.name)}</td>
+                    <td className="px-4 py-4 font-semibold">{currency.format(fee.amount)}</td>
+                    <td className="px-4 py-4">{chargeTypes[fee.chargeType] ?? fee.chargeType}</td>
+                    <td className="px-4 py-4">{yesNo(fee.required)}</td>
+                    <td className="px-4 py-4">{yesNo(fee.active)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
-          </div> : <p className="rounded-xl border border-[#eee8df] bg-[#fdfcfb] p-4 text-sm text-stone-500">Nenhuma taxa adicional cadastrada.</p>}
+          </div>
         </Section>
+      )}
 
         
         {([
@@ -481,6 +506,8 @@ function ProductDetailsContent() {
     </dl>
   </section>
 )}
+
+{!expensesLoading && !expensesError && expenses.length > 0 && (
 
 <div className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
   <section>
@@ -674,9 +701,11 @@ function ProductDetailsContent() {
   </section>
 </div>
 
+)}
 
+     {!inventoryLoading && !inventoryError && inventoryItems.length > 0 && (
 
- <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
+      <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-[#342d27]">Estoque ({inventoryItems.length})</h3>
             <Link href="/estoque/novo" className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448]">
@@ -776,7 +805,11 @@ function ProductDetailsContent() {
               </table>
             </div>
           )}
-        </section>      </div> : null}
+        </section>   
+        )}
+        </div> : null}
+
+        
     </div>
   </DashboardLayout>;
 }

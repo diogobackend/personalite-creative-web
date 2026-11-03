@@ -35,6 +35,14 @@ type Product = {
   description?: string | null;
 };
 
+type ProductCharacteristics = {
+  colors?: string[] | null;
+  sizes?: string[] | null;
+  materials?: string[] | null;
+  brands?: string[] | null;
+  models?: string[] | null;
+};
+
 type InventoryForm = {
   name: string;
   category: string;
@@ -86,8 +94,6 @@ const CATEGORY_OPTIONS = [
   { value: "CAIXAS", label: "Caixas" },
   { value: "KITS", label: "Kits" },
 ];
-
-const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG"];
 
 const UNIT_OPTIONS = [
   { value: "UN", label: "Unidade (un)" },
@@ -219,6 +225,10 @@ export default function NovoEstoquePage() {
     null,
   );
 
+  const [characteristics, setCharacteristics] = useState<ProductCharacteristics | null>(null);
+  const [loadingCharacteristics, setLoadingCharacteristics] = useState(false);
+  const [characteristicsError, setCharacteristicsError] = useState<string | null>(null);
+
   const [form, setForm] = useState<InventoryForm>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +248,8 @@ export default function NovoEstoquePage() {
 
     setProductChoice(choice);
     setSelectedProduct(null);
+    setCharacteristics(null);
+    setCharacteristicsError(null);
     setProductSearch("");
     setProductDropdownOpen(false);
     setProductsError(null);
@@ -249,11 +261,18 @@ export default function NovoEstoquePage() {
       category: "",
       sku: "",
       description: "",
+      color: "",
+      size: "",
+      material: "",
+      brand: "",
+      model: "",
     }));
   }
 
   function handleSelectProduct(product: Product) {
     setSelectedProduct(product);
+    setCharacteristics(null);
+    setCharacteristicsError(null);
     setProductSearch(product.name);
     setProductDropdownOpen(false);
 
@@ -263,6 +282,11 @@ export default function NovoEstoquePage() {
       category: product.category,
       sku: product.code,
       description: product.description ?? "",
+      color: "",
+      size: "",
+      material: "",
+      brand: "",
+      model: "",
     }));
   }
 
@@ -325,6 +349,54 @@ export default function NovoEstoquePage() {
     return () => controller.abort();
   }, [productChoice]);
 
+  useEffect(() => {
+    if (productChoice !== "YES" || !selectedProduct) {
+      setLoadingCharacteristics(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadCharacteristics() {
+      setLoadingCharacteristics(true);
+      setCharacteristics(null);
+      setCharacteristicsError(null);
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get<ProductCharacteristics>(
+          `/products/${selectedProduct!.id}`,
+          {
+            signal: controller.signal,
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : undefined,
+          },
+        );
+
+        if (!controller.signal.aborted) {
+          setCharacteristics(response.data);
+        }
+      } catch (exception) {
+        if (controller.signal.aborted || axios.isCancel(exception)) return;
+        setCharacteristicsError("Não foi possível carregar as características do produto.");
+      } finally {
+        if (!controller.signal.aborted) setLoadingCharacteristics(false);
+      }
+    }
+
+    void loadCharacteristics();
+    return () => controller.abort();
+  }, [productChoice, selectedProduct]);
+
+  const characteristicFields = [
+    { field: "color", label: "Cor", options: characteristics?.colors, placeholder: "Ex.: Branco" },
+    { field: "size", label: "Tamanho", options: characteristics?.sizes, placeholder: "Ex.: 23" },
+    { field: "material", label: "Material", options: characteristics?.materials, placeholder: "Ex.: Algodão" },
+    { field: "brand", label: "Marca", options: characteristics?.brands, placeholder: "Ex.: Marca do fornecedor" },
+    { field: "model", label: "Modelo", options: characteristics?.models, placeholder: "Ex.: Oversized" },
+  ] as const;
+
   const filteredProducts = products.filter((product) =>
     product.name
       .toLocaleLowerCase("pt-BR")
@@ -342,6 +414,11 @@ export default function NovoEstoquePage() {
 
     if (productChoice === "YES" && !selectedProduct) {
       setError("Selecione um produto cadastrado.");
+      return;
+    }
+
+    if (productChoice === "YES" && (loadingCharacteristics || !characteristics)) {
+      setError(characteristicsError ?? "Aguarde o carregamento das características do produto.");
       return;
     }
 
@@ -776,75 +853,51 @@ export default function NovoEstoquePage() {
               description="Informações opcionais para diferenciar materiais e variações."
             />
 
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Cor">
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={form.color}
-                  onChange={(event) =>
-                    updateForm("color", event.target.value)
-                  }
-                  placeholder="Ex.: Branco"
-                  className={INPUT_CLASS}
-                />
-              </Field>
+            {productChoice === "YES" && selectedProduct && loadingCharacteristics ? (
+              <p className="mt-6 flex items-center gap-2 text-sm text-[#81766b]">
+                <Loader2 size={16} className="animate-spin" />
+                Carregando características do produto...
+              </p>
+            ) : productChoice === "YES" && selectedProduct && characteristicsError ? (
+              <p className="mt-6 text-sm text-red-600">{characteristicsError}</p>
+            ) : productChoice === "YES" && selectedProduct && characteristics &&
+              characteristicFields.every(({ options }) => !options?.length) ? (
+              <p className="mt-6 text-sm text-[#81766b]">
+                Nenhuma característica cadastrada nesse produto.
+              </p>
+            ) : (
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {characteristicFields.map(({ field, label, options, placeholder }) => {
+                  if (productChoice === "YES" && (!selectedProduct || !options?.length)) return null;
 
-              <Field label="Tamanho">
-                <select
-                  value={form.size}
-                  onChange={(event) => updateForm("size", event.target.value)}
-                  className={INPUT_CLASS}
-                >
-                  <option value="">Selecione um tamanho</option>
-                  {SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Material">
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={form.material}
-                  onChange={(event) =>
-                    updateForm(
-                      "material",
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Ex.: Algodão"
-                  className={INPUT_CLASS}
-                />
-              </Field>
-
-              <Field label="Marca">
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={form.brand}
-                  onChange={(event) =>
-                    updateForm("brand", event.target.value)
-                  }
-                  placeholder="Ex.: Marca do fornecedor"
-                  className={INPUT_CLASS}
-                />
-              </Field>
-
-              <Field label="Modelo">
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={form.model}
-                  onChange={(event) =>
-                    updateForm("model", event.target.value)
-                  }
-                  placeholder="Ex.: Oversized"
-                  className={INPUT_CLASS}
-                />
-              </Field>
-            </div>
+                  return (
+                    <Field key={field} label={label}>
+                      {productChoice === "YES" ? (
+                        <select
+                          value={form[field]}
+                          onChange={(event) => updateForm(field, event.target.value)}
+                          className={INPUT_CLASS}
+                        >
+                          <option value="">Selecione {label.toLocaleLowerCase("pt-BR")}</option>
+                          {options?.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          maxLength={255}
+                          value={form[field]}
+                          onChange={(event) => updateForm(field, event.target.value)}
+                          placeholder={placeholder}
+                          className={INPUT_CLASS}
+                        />
+                      )}
+                    </Field>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">

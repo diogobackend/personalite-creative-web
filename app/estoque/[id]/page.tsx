@@ -531,23 +531,42 @@ function VisualizarEstoqueContent() {
               {lowStock && <span className="rounded-full bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700">Estoque baixo</span>}
             </section>
 
-            <Section title="Descrição">
-              {item.description}
-            </Section>
+            {item.description?.trim() && (
+              <Section title="Descrição">
+                {item.description}
+              </Section>
+            )}
 
             <Section title="Controle de estoque">
               <Detail label="Qtd disponível" value={item.quantity} />
-              <Detail label="Qtd mínima p/ alertar" value={item.minimumQuantity} />
-              <Detail label="Unidade de medida" value={item.unit ? UNITS[item.unit] ?? item.unit : null} />
+
+              {item.minimumQuantity !== null && item.minimumQuantity !== undefined && (
+                <Detail label="Qtd mínima p/ alertar" value={item.minimumQuantity} />
+              )}
+
+              {item.unit?.trim() && (
+                <Detail
+                  label="Unidade de medida"
+                  value={UNITS[item.unit] ?? item.unit}
+                />
+              )}
             </Section>
 
+                      {[
+            item.color,
+            item.size,
+            item.material,
+            item.brand,
+            item.model,
+          ].some((value) => value?.trim()) && (
             <Section title="Detalhes do item">
-              <Detail label="Cor" value={item.color} />
-              <Detail label="Tamanho" value={item.size} />
-              <Detail label="Material" value={item.material} />
-              <Detail label="Marca" value={item.brand} />
-              <Detail label="Modelo" value={item.model} />
+              {item.color?.trim() && <Detail label="Cor" value={item.color} />}
+              {item.size?.trim() && <Detail label="Tamanho" value={item.size} />}
+              {item.material?.trim() && <Detail label="Material" value={item.material} />}
+              {item.brand?.trim() && <Detail label="Marca" value={item.brand} />}
+              {item.model?.trim() && <Detail label="Modelo" value={item.model} />}
             </Section>
+          )}
 
             <Section title="Registro">
               <Detail label="Data de cadastro" value={formatDate(item.createdAt)} />

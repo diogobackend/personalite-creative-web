@@ -80,8 +80,6 @@ const UNIT_OPTIONS = [
   ["ROLO", "Rolo"], ["FOLHA", "Folha"],
 ] as const;
 
-const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG"] as const;
-
 const SORT_OPTIONS = [
   ["name", "Nome"], ["category", "Categoria"], ["quantity", "Quantidade"],
   ["unit", "Unidade"], ["color", "Cor"], ["size", "Tamanho"],
@@ -276,12 +274,7 @@ export default function EstoquePage() {
                     </select>
                   </Field>
                   <Field label="Cor"><input className={INPUT_CLASS} placeholder="Ex.: Branco" value={draft.color} onChange={(e) => update("color", e.target.value)} /></Field>
-                  <Field label="Tamanho">
-                    <select className={INPUT_CLASS} value={draft.size} onChange={(e) => update("size", e.target.value)}>
-                      <option value="">Todos os tamanhos</option>
-                      {SIZE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  </Field>
+                  <Field label="Tamanho"><input className={INPUT_CLASS} placeholder="Ex.: 23 ou M" value={draft.size} onChange={(e) => update("size", e.target.value)} /></Field>
                   <Field label="Material"><input className={INPUT_CLASS} placeholder="Ex.: Algodão" value={draft.material} onChange={(e) => update("material", e.target.value)} /></Field>
                   <Field label="Marca"><input className={INPUT_CLASS} placeholder="Buscar marca" value={draft.brand} onChange={(e) => update("brand", e.target.value)} /></Field>
                   <Field label="Modelo"><input className={INPUT_CLASS} placeholder="Buscar modelo" value={draft.model} onChange={(e) => update("model", e.target.value)} /></Field>
