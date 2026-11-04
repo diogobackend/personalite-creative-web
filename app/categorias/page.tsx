@@ -208,8 +208,25 @@ export default function CategoriasPage() {
         {SECTIONS.filter((section) => filterType === "ALL" || section.type === filterType).map(({ type: sectionType, title, icon: Icon }) => {
           const items = filtered.filter((category) => category.type === sectionType).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
           return (
-            <section key={sectionType} className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-4 border-b border-[#eee8df] p-5 sm:p-6">
+            <section
+                key={sectionType}
+                className={`overflow-hidden rounded-2xl border-2 shadow-md ${
+                  sectionType === "PRODUCT"
+                    ? "border-blue-300 bg-blue-50/50"
+                    : sectionType === "INVENTORY"
+                      ? "border-emerald-300 bg-emerald-50/50"
+                      : "border-amber-300 bg-amber-50/50"
+                }`}
+              >
+              <div
+                  className={`flex items-center justify-between gap-4 border-b-2 p-5 sm:p-6 ${
+                    sectionType === "PRODUCT"
+                      ? "border-blue-200 bg-blue-100"
+                      : sectionType === "INVENTORY"
+                        ? "border-emerald-200 bg-emerald-100"
+                        : "border-amber-200 bg-amber-100"
+                  }`}
+                >
                 <div className="flex items-start gap-3">
                   <div className="rounded-xl bg-[#f4ede2] p-2.5 text-[#a98a58]"><Icon size={20} /></div>
                   <div><h2 className="text-lg font-semibold text-[#342d27]">{title}</h2></div>

@@ -82,18 +82,11 @@ const LABEL_CLASS =
 const SECTION_CLASS =
   "rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6";
 
-const CATEGORY_OPTIONS = [
-  { value: "GOURMET", label: "Gourmet" },
-  { value: "AGUAS", label: "Águas" },
-  { value: "GARRAFAS", label: "Garrafas" },
-  { value: "GLOSS", label: "Gloss" },
-  { value: "BOLSAS", label: "Bolsas" },
-  { value: "NECESSAIRES", label: "Necessaires" },
-  { value: "LENCOS", label: "Lenços" },
-  { value: "PAPELARIA", label: "Papelaria" },
-  { value: "CAIXAS", label: "Caixas" },
-  { value: "KITS", label: "Kits" },
-];
+type InventoryCategory = {
+  id: string;
+  name: string;
+  type: string;
+};
 
 const UNIT_OPTIONS = [
   { value: "UN", label: "Unidade (un)" },
@@ -230,8 +223,32 @@ export default function NovoEstoquePage() {
   const [characteristicsError, setCharacteristicsError] = useState<string | null>(null);
 
   const [form, setForm] = useState<InventoryForm>(INITIAL_FORM);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadCategories() {
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get("/categories", {
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (controller.signal.aborted) return;
+        const data = response.data?.content ?? response.data;
+        setCategories(Array.isArray(data) ? data.filter((category: InventoryCategory) => category.type === "INVENTORY") : []);
+      } catch (exception) {
+        if (controller.signal.aborted || axios.isCancel(exception)) return;
+        setError("Não foi possível carregar as categorias do estoque.");
+      }
+    }
+
+    void loadCategories();
+    return () => controller.abort();
+  }, []);
 
   function updateForm<K extends keyof InventoryForm>(
     field: K,
@@ -403,10 +420,8 @@ export default function NovoEstoquePage() {
       .includes(productSearch.toLocaleLowerCase("pt-BR")),
   );
 
-  const selectedCategoryLabel =
-    CATEGORY_OPTIONS.find(
-      (category) => category.value === form.category,
-    )?.label ?? form.category;
+  const selectedCategoryLabel = form.category;
+  const selectedCategory = categories.find((category) => category.name === form.category);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -427,8 +442,8 @@ export default function NovoEstoquePage() {
       return;
     }
 
-    if (!form.category.trim()) {
-      setError("Informe a categoria do item.");
+    if (!selectedCategory) {
+      setError("Selecione uma categoria válida do estoque.");
       return;
     }
 
@@ -459,6 +474,7 @@ export default function NovoEstoquePage() {
     const payload = {
       name: form.name.trim(),
       category: form.category.trim(),
+      categoryId: selectedCategory.id,
       description: optionalText(form.description),
       productId:
         productChoice === "YES" ? selectedProduct!.id : null,
@@ -738,12 +754,12 @@ export default function NovoEstoquePage() {
                       Selecione uma categoria
                     </option>
 
-                    {CATEGORY_OPTIONS.map((category) => (
+                    {categories.map((category) => (
                       <option
-                        key={category.value}
-                        value={category.value}
+                        key={category.id}
+                        value={category.name}
                       >
-                        {category.label}
+                        {category.name}
                       </option>
                     ))}
                   </select>

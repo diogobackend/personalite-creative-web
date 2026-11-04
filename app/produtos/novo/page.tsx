@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
@@ -8,7 +8,7 @@ import DashboardLayout from "../../../src/components/layout/DashboardLayout"
 import { getColor } from "../../../src/utils/colors";
 import { api } from "../../../src/lib/api"
 
-type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
+type Category = { id: string; name: string; type: string };
 type PricingType = "FIXED" | "TIERED" | "QUOTE";
 type ChargeType = "PER_ORDER" | "PER_UNIT" | "FIRST_PURCHASE";
 type PriceRow = { minimumQuantity: string; unitPrice: string };
@@ -25,7 +25,7 @@ const characteristicFields: { key: CharacteristicKey; label: string; placeholder
 type ProductForm = {
   code: string;
   name: string;
-  category: Category;
+  categoryId: string;
   description: string;
   minimumQuantity: string;
   pricingType: PricingType;
@@ -35,18 +35,7 @@ type ProductForm = {
   active: boolean;
 };
 
-const categories: { value: Category; label: string }[] = [
-  { value: "GOURMET", label: "Gourmet" },
-  { value: "AGUAS", label: "Águas" },
-  { value: "GARRAFAS", label: "Garrafas" },
-  { value: "GLOSS", label: "Gloss" },
-  { value: "BOLSAS", label: "Bolsas" },
-  { value: "NECESSAIRES", label: "Necessaires" },
-  { value: "LENCOS", label: "Lenços" },
-  { value: "PAPELARIA", label: "Papelaria" },
-  { value: "CAIXAS", label: "Caixas" },
-  { value: "KITS", label: "Kits" },
-];
+
 
 const pricingTypes: { value: PricingType; label: string }[] = [
   { value: "FIXED", label: "Preço fixo" },
@@ -110,16 +99,34 @@ function getErrorMessage(error: unknown): string {
 export default function NovoProdutoPage() {
   const router = useRouter();
   const [form, setForm] = useState<ProductForm>({
-    code: "", name: "", category: "GOURMET", description: "", minimumQuantity: "",
+    code: "", name: "", categoryId: "", description: "", minimumQuantity: "",
     pricingType: "TIERED", shelfLifeDays: "", productionLeadTimeMinDays: "",
     productionLeadTimeMaxDays: "", active: true,
   });
+  const [categories, setCategories] = useState<Category[]>([]);
   const [prices, setPrices] = useState<PriceRow[]>([{ minimumQuantity: "", unitPrice: "" }]);
   const [fees, setFees] = useState<FeeRow[]>([]);
   const [characteristics, setCharacteristics] = useState<Characteristics>({ colors: [], sizes: [], brands: [], models: [], materials: [] });
   const [characteristicInputs, setCharacteristicInputs] = useState<Record<CharacteristicKey, string>>({ colors: "", sizes: "", brands: "", models: "", materials: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadCategories = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get<Category[]>("/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (active) setCategories(response.data.filter((category) => category.type === "PRODUCT"));
+      } catch (err) {
+        if (active) setError(getErrorMessage(err));
+      }
+    };
+    void loadCategories();
+    return () => { active = false; };
+  }, []);
 
   function updateForm<K extends keyof ProductForm>(key: K, value: ProductForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -150,6 +157,8 @@ export default function NovoProdutoPage() {
 
     if (!/^\d{3}$/.test(form.code)) return setError("O código deve conter exatamente 3 números.");
     if (!form.name.trim()) return setError("Informe o nome do produto.");
+    const selectedCategory = categories.find((category) => category.id === form.categoryId);
+    if (!selectedCategory) return setError("Selecione uma categoria válida.");
     if (form.minimumQuantity && !validPositiveInteger(form.minimumQuantity)) return setError("A quantidade mínima deve ser um número inteiro maior que zero.");
     if (form.shelfLifeDays && !validPositiveInteger(form.shelfLifeDays)) return setError("A validade deve ser um número inteiro maior que zero.");
     if (form.productionLeadTimeMinDays && !validNonNegativeInteger(form.productionLeadTimeMinDays)) return setError("O prazo mínimo de produção deve ser um número inteiro não negativo.");
@@ -170,7 +179,8 @@ export default function NovoProdutoPage() {
     const payload = {
       code: form.code,
       name: form.name.trim(),
-      category: form.category,
+      category: selectedCategory.name,
+      categoryId: selectedCategory.id,
       description: form.description.trim() || null,
       minimumQuantity: optionalNumber(form.minimumQuantity),
       pricingType: form.pricingType,
@@ -212,7 +222,7 @@ export default function NovoProdutoPage() {
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               <Field label="Código" required><input className={inputClass} value={form.code} maxLength={3} inputMode="numeric" placeholder="Ex.: 011" onChange={(e) => updateForm("code", e.target.value.replace(/\D/g, ""))} /></Field>
               <div className="lg:col-span-2"><Field label="Nome" required><input className={inputClass} value={form.name} maxLength={255} placeholder="Produto" onChange={(e) => updateForm("name", e.target.value)} /></Field></div>
-              <Field label="Categoria" required><select className={inputClass} value={form.category} onChange={(e) => updateForm("category", e.target.value as Category)}>{categories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}</select></Field>
+              <Field label="Categoria" required><select className={inputClass} value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)}><option value="">Selecione uma categoria</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
               <Field label="Tipo de precificação" required><select className={inputClass} value={form.pricingType} onChange={(e) => updateForm("pricingType", e.target.value as PricingType)}>{pricingTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></Field>
               <Field label="Quantidade mínima"><input className={inputClass} type="number" min="1" step="1" value={form.minimumQuantity} placeholder="Ex.: 50" onChange={(e) => updateForm("minimumQuantity", e.target.value)} /></Field>
               <div className="md:col-span-2 lg:col-span-3"><Field label="Descrição"><textarea className={`${inputClass} min-h-28 resize-y`} value={form.description} placeholder="Descreva o produto..." onChange={(e) => updateForm("description", e.target.value)} /></Field></div>

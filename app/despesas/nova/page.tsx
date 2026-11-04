@@ -23,16 +23,15 @@ import {
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 
-type ExpenseCategory =
-  | "TRANSPORT"
-  | "PRODUCTION"
-  | "INVESTMENT"
-  | "BILLS"
-  | "MARKETING"
-  | "PACKAGING"
-  | "EQUIPMENT"
-  | "STOCK"
-  | "OTHER";
+type ExpenseCategory = string;
+
+type RegisteredCategory = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+const STOCK_CATEGORY_NAME = "item de estoque";
 
 type ExpenseAllocationType =
   | "GENERAL"
@@ -63,6 +62,7 @@ type ExpenseForm = {
   description: string;
   value: string;
   category: ExpenseCategory;
+  categoryId: string;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: string;
@@ -71,21 +71,6 @@ type ExpenseForm = {
   isToday: boolean;
   products: ProductAllocation[];
 };
-
-const CATEGORY_OPTIONS: {
-  value: ExpenseCategory;
-  label: string;
-}[] = [
-  { value: "TRANSPORT", label: "Transporte" },
-  { value: "PRODUCTION", label: "Produção" },
-  { value: "INVESTMENT", label: "Investimento" },
-  { value: "BILLS", label: "Contas" },
-  { value: "MARKETING", label: "Marketing" },
-  { value: "PACKAGING", label: "Embalagens" },
-  { value: "EQUIPMENT", label: "Equipamentos" },
-  { value: "STOCK", label: "Compra de item no Estoque" },
-  { value: "OTHER", label: "Outros" },
-];
 
 const PRODUCT_CATEGORY_OPTIONS = [
   { value: "GOURMET", label: "Gourmet" },
@@ -315,7 +300,8 @@ export default function NewExpensePage() {
     name: "",
     description: "",
     value: "",
-    category: "STOCK",
+    category: "",
+    categoryId: "",
     allocationType: "GENERAL",
     status: "PAID",
     quantity: "",
@@ -325,6 +311,7 @@ export default function NewExpensePage() {
     products: [],
   });
 
+  const [expenseCategories, setExpenseCategories] = useState<RegisteredCategory[]>([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState("");
   const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -342,6 +329,33 @@ export default function NewExpensePage() {
       [field]: value,
     }));
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadExpenseCategories() {
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get("/categories", {
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (controller.signal.aborted) return;
+        const data = response.data?.content ?? response.data;
+        setExpenseCategories(
+          (Array.isArray(data) ? data : []).filter(
+            (category: RegisteredCategory) => category.type === "EXPENSE",
+          ),
+        );
+      } catch (exception) {
+        if (controller.signal.aborted || axios.isCancel(exception)) return;
+        setError("Não foi possível carregar as categorias de despesas.");
+      }
+    }
+
+    void loadExpenseCategories();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (form.allocationType === "GENERAL") return;
@@ -395,7 +409,7 @@ export default function NewExpensePage() {
   }, [form.allocationType]);
 
   useEffect(() => {
-    if (form.category !== "STOCK") return;
+    if (form.category !== STOCK_CATEGORY_NAME) return;
 
     const controller = new AbortController();
     async function loadInventory() {
@@ -508,6 +522,11 @@ export default function NewExpensePage() {
     event.preventDefault();
     setError(null);
 
+    if (!form.categoryId || !expenseCategories.some((category) => category.id === form.categoryId)) {
+      setError("Selecione uma categoria de despesa válida.");
+      return;
+    }
+
     if (!form.name.trim()) {
       setError("Despesa");
       return;
@@ -527,13 +546,13 @@ export default function NewExpensePage() {
       return;
     }
 
-    if (form.category === "STOCK" && !form.inventoryId) {
+    if (form.category === STOCK_CATEGORY_NAME && !form.inventoryId) {
       setError("Selecione um item do estoque.");
       return;
     }
 
     if (
-      form.category === "STOCK" &&
+      form.category === STOCK_CATEGORY_NAME &&
       (!Number.isInteger(Number(form.quantity)) ||
         Number(form.quantity) <= 0)
     ) {
@@ -625,11 +644,12 @@ export default function NewExpensePage() {
       description: form.description.trim() || null,
       value: expenseValue,
       category: form.category,
-      inventoryId: form.category === "STOCK" ? form.inventoryId : null,
+      categoryId: form.categoryId,
+      inventoryId: form.category === STOCK_CATEGORY_NAME ? form.inventoryId : null,
       allocationType: form.allocationType,
       status: form.status,
       quantity:
-        form.category === "STOCK"
+        form.category === STOCK_CATEGORY_NAME
           ? Number(form.quantity)
           : null,
       expenseDate,
@@ -742,26 +762,25 @@ export default function NewExpensePage() {
 
             <Field label="Categoria" required>
               <select
-                value={form.category}
+                value={form.categoryId}
                 onChange={(event) => {
-                  const category =
-                    event.target.value as ExpenseCategory;
+                  const categoryId = event.target.value;
+                  const category = expenseCategories.find((item) => item.id === categoryId)?.name ?? "";
 
                   setForm((previous) => ({
                     ...previous,
+                    categoryId,
                     category,
-                    inventoryId: category === "STOCK" ? previous.inventoryId : "",
-                    quantity:
-                      category === "STOCK"
-                        ? previous.quantity
-                        : "",
+                    inventoryId: category === STOCK_CATEGORY_NAME ? previous.inventoryId : "",
+                    quantity: category === STOCK_CATEGORY_NAME ? previous.quantity : "",
                   }));
                 }}
                 className={INPUT_CLASS}
               >
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="">Selecione uma categoria</option>
+                {expenseCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -786,7 +805,7 @@ export default function NewExpensePage() {
               </select>
             </Field>
 
-            {form.category === "STOCK" && (
+            {form.category === STOCK_CATEGORY_NAME && (
               <div className="sm:col-span-2">
                 <Field label="Item do estoque" required>
                   <InventorySearchSelect
@@ -801,7 +820,7 @@ export default function NewExpensePage() {
               </div>
             )}
 
-            {form.category === "STOCK" && (
+            {form.category === STOCK_CATEGORY_NAME && (
               <Field label="Quantidade em estoque" required>
                 <input
                   type="number"
