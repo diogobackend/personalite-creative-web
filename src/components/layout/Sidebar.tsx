@@ -6,6 +6,7 @@ import {
   Boxes,
   ChartNoAxesCombined,
   CreditCard,
+  Tags,
   LayoutDashboard,
   LogOut,
   Package,
@@ -17,6 +18,7 @@ import {
 const navigation = [
   { label: "Visão geral", icon: LayoutDashboard, href: "/" },
   { label: "Produtos", icon: Package, href: "/produtos" },
+  { label: "Categorias", icon: Tags, href: "/categorias" },
   { label: "Vendas", icon: ShoppingBag, href: "/vendas" },
   { label: "Clientes", icon: Users, href: "/clientes" },
   { label: "Estoque", icon: Boxes, href: "/estoque" },
@@ -78,12 +80,12 @@ export default function Sidebar({ close }: { close: () => void }) {
         </p>
 
         <Link
-          href="/configuracoes"
+          href="/perfil"
           onClick={close}
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#d8d0c6] transition-colors hover:bg-white/10"
         >
           <Settings className="h-[18px] w-[18px]" />
-          Configurações
+          Meu Perfil
         </Link>
       </div>
 
