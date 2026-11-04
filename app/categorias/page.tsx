@@ -190,7 +190,7 @@ export default function CategoriasPage() {
           <select
             aria-label="Filtrar categorias por tipo"
             value={filterType}
-            onChange={(event) => setFilterType(event.target.value as CategoryType | "ALL")}
+            onChange={(event) => { setFilterType(event.target.value as CategoryType | "ALL"); setSearch(""); }}
             className={INPUT_CLASS}
           >
             <option value="ALL">Todos os tipos</option>
@@ -205,7 +205,7 @@ export default function CategoriasPage() {
           <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="ml-3 font-semibold underline">Tentar novamente</button>
         </div>}
 
-        {SECTIONS.map(({ type: sectionType, title, icon: Icon }) => {
+        {SECTIONS.filter((section) => filterType === "ALL" || section.type === filterType).map(({ type: sectionType, title, icon: Icon }) => {
           const items = filtered.filter((category) => category.type === sectionType).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
           return (
             <section key={sectionType} className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
@@ -225,15 +225,13 @@ export default function CategoriasPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[520px] text-left">
-                    <thead className="bg-[#f8f5f0] text-xs font-semibold uppercase tracking-wide text-[#81766b]">
-                      <tr><th className="px-5 py-3.5">Nome da categoria</th><th className="w-48 px-5 py-3.5 text-center">Ações</th></tr>
-                    </thead>
+
                     <tbody>
                       {items.map((category) => {
                         const editing = editingId === category.id;
                         const busy = busyId === category.id;
                         return (
-                          <tr key={category.id} className="border-b border-[#eee8df] last:border-b-0 odd:bg-white even:bg-[#f7f3ed] transition-colors hover:bg-[#f0e9de]">
+                          <tr key={category.id} className="border-b border-[#eee8df] last:border-b-0 odd:bg-white even:bg-[#e8e2d9] transition-colors hover:bg-[#ddd5ca]">
                             <td className="px-5 py-3.5">
                               {editing ? (
                                 <input autoFocus aria-label={`Editar nome de ${category.name}`} className={`${INPUT_CLASS} max-w-xl py-2`} maxLength={150} value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleUpdate(category); } if (event.key === "Escape") setEditingId(null); }} disabled={busy} />
