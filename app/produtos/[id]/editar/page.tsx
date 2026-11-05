@@ -40,6 +40,7 @@ type Product = {
   code: string;
   name: string;
   category: string;
+  categoryId: string | null;
   description: string | null;
   minimumQuantity: number | null;
   pricingType: string;
@@ -67,7 +68,11 @@ type Product = {
   }[];
 };
 
-const categories = ["SAVORY", "SWEET", "BEVERAGE", "OTHER"];
+type Category = {
+  id: string;
+  name: string;
+  type: "PRODUCT" | "INVENTORY" | "EXPENSE";
+};
 const chargeTypes = ["FIXED", "PER_UNIT", "PERCENTAGE"];
 
 const characteristicGroups: {
@@ -129,6 +134,8 @@ function EditProductContent() {
   const router = useRouter();
 
   const [original, setOriginal] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState("");
 
   const [characteristicInputs, setCharacteristicInputs] =
   useState<Record<CharacteristicKey, string>>({
@@ -184,8 +191,21 @@ function EditProductContent() {
           }
         );
 
+        const { data: productCategories } = await api.get<Category[]>(
+          "/categories",
+          {
+            params: { type: "PRODUCT" },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            signal: controller.signal,
+          }
+        );
+
         if (controller.signal.aborted) return;
 
+        setCategories(productCategories);
+        setCategoryId(data.categoryId ?? "");
         setOriginal(data);
 
         setForm({
@@ -472,6 +492,10 @@ function EditProductContent() {
         }
       }
 
+      if (categoryId && categoryId !== original.categoryId) {
+        body.categoryId = categoryId;
+      }
+
       const numberFields = [
         "minimumQuantity",
         "shelfLifeDays",
@@ -718,9 +742,10 @@ function EditProductContent() {
           </p>
         ) : (
           <form
-            onSubmit={save}
-            className="space-y-6"
-          >
+              id="edit-product-form"
+              onSubmit={save}
+              className="space-y-6"
+            >
             {/* INFORMAÇÕES GERAIS */}
 
             <section className={sectionClass}>
@@ -748,23 +773,25 @@ function EditProductContent() {
                   </span>
                   <select
                     className={inputClass}
-                    value={form.category}
-                    onChange={(e) =>
-                      updateForm("category", e.target.value)
-                    }
+                    value={categoryId}
+                    onChange={(e) => {
+                      const selected = categories.find(
+                        (category) => category.id === e.target.value
+                      );
+
+                      setCategoryId(e.target.value);
+
+                      if (selected) {
+                        updateForm("category", selected.name);
+                      }
+                    }}
                   >
-                    {Array.from(
-                      new Set([form.category, ...categories])
-                    )
-                      .filter(Boolean)
-                      .map((category) => (
-                        <option
-                          key={category}
-                          value={category}
-                        >
-                          {category}
-                        </option>
-                      ))}
+                    <option value="">Selecione uma categoria</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
 

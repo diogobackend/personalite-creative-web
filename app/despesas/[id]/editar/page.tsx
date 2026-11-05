@@ -24,16 +24,15 @@ import {
 import { api } from "../../../../src/lib/api";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 
-type ExpenseCategory =
-  | "TRANSPORT"
-  | "PRODUCTION"
-  | "INVESTMENT"
-  | "BILLS"
-  | "MARKETING"
-  | "PACKAGING"
-  | "EQUIPMENT"
-  | "STOCK"
-  | "OTHER";
+type ExpenseCategory = string;
+
+const STOCK_CATEGORY_NAME = "item de estoque";
+
+type Category = {
+  id: string;
+  name: string;
+  type: "PRODUCT" | "INVENTORY" | "EXPENSE";
+};
 
 type ExpenseAllocationType =
   | "GENERAL"
@@ -46,6 +45,12 @@ type Product = {
   id: string;
   name: string;
   category?: string;
+};
+
+type InventoryItem = {
+  id: string;
+  name: string;
+  sku?: string | null;
 };
 
 type ProductAllocation = {
@@ -61,25 +66,11 @@ type ExpenseForm = {
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: string;
+  inventoryId: string;
   expenseDate: string;
   isToday: boolean;
   products: ProductAllocation[];
 };
-
-const CATEGORY_OPTIONS: {
-  value: ExpenseCategory;
-  label: string;
-}[] = [
-  { value: "TRANSPORT", label: "Transporte" },
-  { value: "PRODUCTION", label: "Produção" },
-  { value: "INVESTMENT", label: "Investimento" },
-  { value: "BILLS", label: "Contas" },
-  { value: "MARKETING", label: "Marketing" },
-  { value: "PACKAGING", label: "Embalagens" },
-  { value: "EQUIPMENT", label: "Equipamentos" },
-  { value: "STOCK", label: "Estoque" },
-  { value: "OTHER", label: "Outros" },
-];
 
 const PRODUCT_CATEGORY_OPTIONS = [
   { value: "GOURMET", label: "Gourmet" },
@@ -176,6 +167,67 @@ function Field({
   );
 }
 
+function InventorySearchSelect({
+  items,
+  value,
+  onChange,
+}: {
+  items: InventoryItem[];
+  value: string;
+  onChange: (inventoryId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = items.find((item) => item.id === value);
+  const query = search.toLocaleLowerCase("pt-BR");
+  const filtered = items.filter((item) =>
+    item.name.toLocaleLowerCase("pt-BR").includes(query) ||
+    (item.sku ?? "").toLocaleLowerCase("pt-BR").includes(query),
+  );
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? search : selected?.name ?? ""}
+        placeholder="Digite o nome ou SKU do item..."
+        onFocus={() => { setSearch(""); setOpen(true); }}
+        onChange={(event) => {
+          setSearch(event.target.value);
+          setOpen(true);
+          if (value) onChange("");
+        }}
+        onBlur={() => setOpen(false)}
+        className={INPUT_CLASS}
+        autoComplete="off"
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-[#e8e0d4] bg-white shadow-lg">
+          {filtered.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-[#81766b]">Nenhum item encontrado.</p>
+          ) : (
+            filtered.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onChange(item.id);
+                  setSearch("");
+                  setOpen(false);
+                }}
+                className="block w-full px-4 py-3 text-left text-sm text-[#342d27] transition hover:bg-[#f4ede2]"
+              >
+                {item.name}{item.sku ? ` — ${item.sku}` : ""}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductSearchSelect({
   products,
   value,
@@ -247,9 +299,11 @@ type ExpenseResponse = {
   description: string | null;
   value: number;
   category: ExpenseCategory;
+  categoryId: string | null;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: number | null;
+  inventoryId: string | null;
   expenseDate: string;
   products: { productId: string; allocatedValue: number }[];
 };
@@ -259,9 +313,11 @@ type UpdatePayload = {
   description: string | null;
   value: number;
   category: ExpenseCategory;
+  categoryId: string | null;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: number | null;
+  inventoryId: string | null;
   expenseDate: string;
   products: { productId: string; allocatedValue: number }[];
 };
@@ -272,15 +328,20 @@ function EditExpenseContent() {
   const id = params.id;
   const [loadingExpense, setLoadingExpense] = useState(true);
   const [original, setOriginal] = useState<UpdatePayload | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState("");
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
 
   const [form, setForm] = useState<ExpenseForm>({
     name: "",
     description: "",
     value: "",
-    category: "STOCK",
+    category: "",
     allocationType: "GENERAL",
     status: "PAID",
     quantity: "",
+    inventoryId: "",
     expenseDate: "",
     isToday: true,
     products: [],
@@ -310,20 +371,32 @@ function EditExpenseContent() {
       setError(null);
       try {
         const token = localStorage.getItem("access_token");
-        const response = await api.get<ExpenseResponse>(`/expenses/${id}`, {
-          signal: controller.signal,
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
+        const [response, categoriesResponse] = await Promise.all([
+          api.get<ExpenseResponse>(`/expenses/${id}`, {
+            signal: controller.signal,
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }),
+          api.get<Category[]>("/categories", {
+            params: { type: "EXPENSE" },
+            signal: controller.signal,
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }),
+        ]);
         if (controller.signal.aborted) return;
         const expense = response.data;
+        const categoryData = categoriesResponse.data as Category[] | { content: Category[] };
+        setCategories(Array.isArray(categoryData) ? categoryData : categoryData.content ?? []);
+        setCategoryId(expense.categoryId ?? "");
         const initial: UpdatePayload = {
           name: expense.name,
           description: expense.description,
           value: Number(expense.value),
           category: expense.category,
+          categoryId: expense.categoryId,
           allocationType: expense.allocationType,
           status: expense.status,
           quantity: expense.quantity,
+          inventoryId: expense.inventoryId ?? null,
           expenseDate: expense.expenseDate,
           products: (expense.products ?? []).map((product) => ({
             productId: product.productId,
@@ -339,6 +412,7 @@ function EditExpenseContent() {
           allocationType: initial.allocationType,
           status: initial.status,
           quantity: initial.quantity == null ? "" : String(initial.quantity),
+          inventoryId: initial.inventoryId ?? "",
           expenseDate: initial.expenseDate,
           isToday: false,
           products: initial.products.map((product) => ({
@@ -411,6 +485,38 @@ function EditExpenseContent() {
 
     return () => controller.abort();
   }, [form.allocationType, loadingExpense]);
+
+  useEffect(() => {
+    if (form.category !== STOCK_CATEGORY_NAME) return;
+
+    const controller = new AbortController();
+    async function loadInventory() {
+      setLoadingInventory(true);
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await api.get("/inventory", {
+          params: {
+            page: 0,
+            pageSize: 100,
+            sortBy: "name",
+            sortDirection: "ASC",
+          },
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (controller.signal.aborted) return;
+        const items = response.data?.content ?? response.data;
+        setInventoryItems(Array.isArray(items) ? items : []);
+      } catch (exception) {
+        if (controller.signal.aborted || axios.isCancel(exception)) return;
+        setError("Não foi possível carregar os itens do estoque.");
+      } finally {
+        if (!controller.signal.aborted) setLoadingInventory(false);
+      }
+    }
+    void loadInventory();
+    return () => controller.abort();
+  }, [form.category]);
 
   const addProduct = () => {
     setForm((previous) => ({
@@ -513,8 +619,13 @@ function EditExpenseContent() {
       return;
     }
 
+    if (form.category === STOCK_CATEGORY_NAME && !form.inventoryId) {
+      setError("Selecione um item do estoque.");
+      return;
+    }
+
     if (
-      form.category === "STOCK" &&
+      form.category === STOCK_CATEGORY_NAME &&
       (!Number.isInteger(Number(form.quantity)) ||
         Number(form.quantity) <= 0)
     ) {
@@ -606,10 +717,12 @@ function EditExpenseContent() {
       description: form.description.trim() || null,
       value: expenseValue,
       category: form.category,
+      categoryId: categoryId || null,
+      inventoryId: form.category === STOCK_CATEGORY_NAME ? form.inventoryId : null,
       allocationType: form.allocationType,
       status: form.status,
       quantity:
-        form.category === "STOCK"
+        form.category === STOCK_CATEGORY_NAME
           ? Number(form.quantity)
           : null,
       expenseDate,
@@ -759,25 +872,31 @@ function EditExpenseContent() {
 
             <Field label="Categoria" required>
               <select
-                value={form.category}
+                value={categoryId}
                 onChange={(event) => {
-                  const category =
-                    event.target.value as ExpenseCategory;
-
-                  setForm((previous) => ({
-                    ...previous,
-                    category,
-                    quantity:
-                      category === "STOCK"
-                        ? previous.quantity
-                        : "",
-                  }));
+                  const selected = categories.find(
+                    (category) => category.id === event.target.value,
+                  );
+                  setCategoryId(event.target.value);
+                  if (selected) {
+                    setForm((previous) => ({
+                      ...previous,
+                      category: selected.name,
+                      inventoryId: selected.name === STOCK_CATEGORY_NAME ? previous.inventoryId : "",
+                      quantity:
+                        selected.name === STOCK_CATEGORY_NAME
+                          ? previous.quantity
+                          : "",
+                    }));
+                  }
                 }}
                 className={INPUT_CLASS}
+                required
               >
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="">Selecione uma categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -802,7 +921,22 @@ function EditExpenseContent() {
               </select>
             </Field>
 
-            {form.category === "STOCK" && (
+            {form.category === STOCK_CATEGORY_NAME && (
+              <div className="sm:col-span-2">
+                <Field label="Item do estoque" required>
+                  <InventorySearchSelect
+                    items={inventoryItems}
+                    value={form.inventoryId}
+                    onChange={(inventoryId) => updateForm("inventoryId", inventoryId)}
+                  />
+                  {loadingInventory && (
+                    <p className="mt-2 text-xs text-[#81766b]">Carregando itens do estoque...</p>
+                  )}
+                </Field>
+              </div>
+            )}
+
+            {form.category === STOCK_CATEGORY_NAME && (
               <Field label="Quantidade em estoque" required>
                 <input
                   type="number"
