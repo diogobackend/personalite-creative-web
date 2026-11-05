@@ -27,16 +27,9 @@ import {
 import { api } from "../../src/lib/api";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 
-type ExpenseCategory =
-  | "TRANSPORT"
-  | "PRODUCTION"
-  | "INVESTMENT"
-  | "BILLS"
-  | "MARKETING"
-  | "PACKAGING"
-  | "EQUIPMENT"
-  | "STOCK"
-  | "OTHER";
+type ExpenseCategory = string;
+
+type RegisteredCategory = { id: string; name: string; type: "PRODUCT" | "INVENTORY" | "EXPENSE" };
 
 type ExpenseAllocationType =
   | "GENERAL"
@@ -120,18 +113,6 @@ const EMPTY_FILTERS: Filters = {
   updatedTo: "",
 };
 
-const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
-  { value: "TRANSPORT", label: "Transporte" },
-  { value: "PRODUCTION", label: "Produção" },
-  { value: "INVESTMENT", label: "Investimento" },
-  { value: "BILLS", label: "Contas" },
-  { value: "MARKETING", label: "Marketing" },
-  { value: "PACKAGING", label: "Embalagens" },
-  { value: "EQUIPMENT", label: "Equipamentos" },
-  { value: "STOCK", label: "Estoque" },
-  { value: "OTHER", label: "Outros" },
-];
-
 const ALLOCATION_OPTIONS: {
   value: ExpenseAllocationType;
   label: string;
@@ -188,9 +169,7 @@ const formatDate = (value?: string | null) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-const categoryLabel = (category: ExpenseCategory) =>
-  CATEGORY_OPTIONS.find((option) => option.value === category)?.label ??
-  category;
+const categoryLabel = (category: ExpenseCategory) => category;
 
 type ProductCategory = string | { name?: string; label?: string } | null;
 
@@ -301,6 +280,7 @@ export default function ExpensesPageScreen() {
 
   const [result, setResult] = useState<ExpensesPage | null>(null);
   const [productCategories, setProductCategories] = useState<Record<string, string>>({});
+  const [expenseCategories, setExpenseCategories] = useState<RegisteredCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -435,6 +415,25 @@ export default function ExpensesPageScreen() {
     return () => controller.abort();
   }, [fetchExpenses, reloadKey]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const token = localStorage.getItem("access_token");
+
+    void api.get<RegisteredCategory[]>("/categories", {
+      params: { type: "EXPENSE" },
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      signal: controller.signal,
+    }).then(({ data }) => {
+      if (!controller.signal.aborted) setExpenseCategories(data);
+    }).catch((error) => {
+      if (!controller.signal.aborted && !axios.isCancel(error)) {
+        setExpenseCategories([]);
+      }
+    });
+
+    return () => controller.abort();
+  }, []);
+
   const totalElements = result?.totalElements ?? 0;
   const totalPages = result?.totalPages ?? 0;
   const currentPage = result?.page ?? page;
@@ -483,7 +482,7 @@ export default function ExpensesPageScreen() {
                 applyFilters();
               }}
             >
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto_auto] xl:items-end">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <FilterField label="Nome">
                   <input
                     type="text"
@@ -494,22 +493,20 @@ export default function ExpensesPageScreen() {
                   />
                 </FilterField>
 
-                <FilterField label="Categoria">
-                  <select
-                    value={draft.category}
-                    onChange={handleInput("category")}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="">Todas as categorias</option>
-
-                    {CATEGORY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                <FilterField label="Despesa a partir de">
+                  <input type="date" value={draft.expenseDateFrom} onChange={handleInput("expenseDateFrom")} className={INPUT_CLASS}  />
                 </FilterField>
-
+                <FilterField label="Despesa até">
+                  <input type="date" value={draft.expenseDateTo} onChange={handleInput("expenseDateTo")} className={INPUT_CLASS}  />
+                </FilterField>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto_auto] xl:items-end">
+                <FilterField label="Valor mínimo">
+                  <input type="number" value={draft.minValue} onChange={handleInput("minValue")} className={INPUT_CLASS} min="0" step="0.01" placeholder="0,00" />
+                </FilterField>
+                <FilterField label="Valor máximo">
+                  <input type="number" value={draft.maxValue} onChange={handleInput("maxValue")} className={INPUT_CLASS} min="0" step="0.01" placeholder="0,00" />
+                </FilterField>
                 <button type="submit" className={BUTTON_CLASS}>
                   <Search size={17} />
                   Buscar
@@ -550,6 +547,22 @@ export default function ExpensesPageScreen() {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <FilterField label="Categoria">
+                  <select
+                    value={draft.category}
+                    onChange={handleInput("category")}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="">Todas as categorias</option>
+
+                    {expenseCategories.map((option) => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+
                     <FilterField label="Descrição">
                       <input
                         type="text"
@@ -604,29 +617,9 @@ export default function ExpensesPageScreen() {
                       />
                     </FilterField>
 
-                    <FilterField label="Valor mínimo">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={draft.minValue}
-                        onChange={handleInput("minValue")}
-                        placeholder="0,00"
-                        className={INPUT_CLASS}
-                      />
-                    </FilterField>
 
-                    <FilterField label="Valor máximo">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={draft.maxValue}
-                        onChange={handleInput("maxValue")}
-                        placeholder="0,00"
-                        className={INPUT_CLASS}
-                      />
-                    </FilterField>
+
+
 
                     <FilterField label="Quantidade exata">
                       <input
@@ -673,23 +666,9 @@ export default function ExpensesPageScreen() {
                       />
                     </FilterField>
 
-                    <FilterField label="Despesa a partir de">
-                      <input
-                        type="date"
-                        value={draft.expenseDateFrom}
-                        onChange={handleInput("expenseDateFrom")}
-                        className={INPUT_CLASS}
-                      />
-                    </FilterField>
 
-                    <FilterField label="Despesa até">
-                      <input
-                        type="date"
-                        value={draft.expenseDateTo}
-                        onChange={handleInput("expenseDateTo")}
-                        className={INPUT_CLASS}
-                      />
-                    </FilterField>
+
+
 
                     <FilterField label="Data exata de cadastro">
                       <input

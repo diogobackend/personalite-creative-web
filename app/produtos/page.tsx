@@ -13,7 +13,7 @@ import {
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 
-type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
+type Category = { id: string; name: string; type: "PRODUCT" | "INVENTORY" | "EXPENSE" };
 type PricingType = "FIXED" | "TIERED" | "QUOTE";
 type ChargeType = "PER_ORDER" | "PER_UNIT" | "FIRST_PURCHASE";
 
@@ -40,7 +40,7 @@ type Product = {
   id: string;
   code: string;
   name: string;
-  category: Category;
+  category: string;
   description: string | null;
   minimumQuantity: number | null;
   pricingType: PricingType;
@@ -83,12 +83,6 @@ const initialFilters: Filters = {
   sizes: "", brands: "", models: "", materials: "",
 };
 
-const categories: Record<Category, string> = {
-  GOURMET: "Gourmet", AGUAS: "Águas", GARRAFAS: "Garrafas",
-  GLOSS: "Gloss", BOLSAS: "Bolsas", NECESSAIRES: "Necessaires",
-  LENCOS: "Lenços", PAPELARIA: "Papelaria", CAIXAS: "Caixas", KITS: "Kits",
-};
-
 const pricingLabels: Record<PricingType, string> = {
   FIXED: "Preço fixo", TIERED: "Por quantidade", QUOTE: "Sob consulta",
 };
@@ -122,6 +116,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 const inputClass = "w-full min-w-0 rounded-xl border border-[#e8e0d4] bg-white px-3 py-2.5 text-sm font-normal text-[#342d27] outline-none transition focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
 
 export default function ProductsPageScreen() {
+  const [categories, setCategories] = useState<Category[]>([]);
   const [draft, setDraft] = useState<Filters>(initialFilters);
   const [applied, setApplied] = useState<Filters>(initialFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -135,6 +130,28 @@ export default function ProductsPageScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const update = (field: keyof Filters, value: string) => setDraft((current) => ({ ...current, [field]: value }));
 
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    void api.get<Category[]>("/categories", {
+      params: { type: "PRODUCT" },
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    }).then(({ data }) => {
+      if (!controller.signal.aborted) {
+        setCategories(data.filter((category) => category.type === "PRODUCT"));
+      }
+    }).catch((error) => {
+      if (!controller.signal.aborted && !axios.isCancel(error)) {
+        setError("Não foi possível carregar as categorias.");
+      }
+    });
+
+    return () => controller.abort();
+  }, []);
 
   const fetchProducts = useCallback(async (signal: AbortSignal) => {
 
@@ -277,8 +294,8 @@ export default function ProductsPageScreen() {
             onChange={(e) => update("category", e.target.value)}
           >
             <option value="">Todas</option>
-            {Object.entries(categories).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.name}>{category.name}</option>
             ))}
           </select>
         </Field>
@@ -463,7 +480,7 @@ export default function ProductsPageScreen() {
                         {product.name}
                       </Link>
                     </td>
-                      <td className="px-4 py-4 text-sm text-stone-600">{categories[product.category] || product.category}</td>
+                      <td className="px-4 py-4 text-sm text-stone-600">{product.category}</td>
                       <td className="px-4 py-4 text-sm font-semibold">{lowestPrice == null ? "Sob consulta" : currency.format(lowestPrice)}</td>
                       <td className="px-4 py-4 text-sm text-stone-600">{product.minimumQuantity ?? "—"}</td>
                       <td className="px-6 py-4 text-right">

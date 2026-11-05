@@ -64,12 +64,7 @@ const EMPTY_FILTERS: Filters = {
   material: "", brand: "", model: "", createdAt: "", createdFrom: "", createdTo: "",
 };
 
-const CATEGORY_OPTIONS = [
-  ["GOURMET", "Gourmet"], ["AGUAS", "Águas"], ["GARRAFAS", "Garrafas"],
-  ["GLOSS", "Gloss"], ["BOLSAS", "Bolsas"], ["NECESSAIRES", "Necessaires"],
-  ["LENCOS", "Lenços"], ["PAPELARIA", "Papelaria"], ["CAIXAS", "Caixas"],
-  ["KITS", "Kits"],
-] as const;
+type InventoryCategory = { id: string; name: string; type: "INVENTORY" };
 
 const UNIT_OPTIONS = [
   ["UN", "Unidade (un)"], ["PAR", "Par"], ["KIT", "Kit"],
@@ -150,6 +145,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function EstoquePage() {
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [draft, setDraft] = useState<Filters>({ ...EMPTY_FILTERS });
   const [applied, setApplied] = useState<Filters>({ ...EMPTY_FILTERS });
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -210,6 +206,26 @@ export default function EstoquePage() {
     return () => controller.abort();
   }, [fetchInventory, reloadKey]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadCategories() {
+      try {
+        const token = localStorage.getItem("access_token");
+        const { data } = await api.get<InventoryCategory[] | { content: InventoryCategory[] }>("/categories", {
+          params: { type: "INVENTORY" },
+          signal: controller.signal,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const list = Array.isArray(data) ? data : data.content ?? [];
+        if (!controller.signal.aborted) setCategories(list.filter((category) => category.type === "INVENTORY"));
+      } catch (cause) {
+        if (!controller.signal.aborted && !axios.isCancel(cause)) setError(getErrorMessage(cause));
+      }
+    }
+    void loadCategories();
+    return () => controller.abort();
+  }, []);
+
   const hasFilters = Object.values(applied).some((value) => value.trim() !== "");
   const skuActive = applied.sku.trim() !== "";
   const totalElements = result?.totalElements ?? 0;
@@ -259,7 +275,7 @@ export default function EstoquePage() {
                   <Field label="Categoria">
                     <select className={INPUT_CLASS} value={draft.category} onChange={(e) => update("category", e.target.value)}>
                       <option value="">Todas as categorias</option>
-                      {CATEGORY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
                     </select>
                   </Field>
                   <Field label="Descrição"><input className={INPUT_CLASS} placeholder="Buscar na descrição" value={draft.description} onChange={(e) => update("description", e.target.value)} /></Field>
@@ -360,7 +376,7 @@ export default function EstoquePage() {
                           {item.description && <p className="mt-1 max-w-[230px] truncate text-xs text-[#81766b]" title={item.description}>{item.description}</p>}
                         </td>
                         <td className="px-5 py-4 text-sm font-medium text-[#927448]">{item.sku || "—"}</td>
-                        <td className="px-5 py-4 text-sm text-[#51473d]">{getLabel(item.category, CATEGORY_OPTIONS)}</td>
+                        <td className="px-5 py-4 text-sm text-[#51473d]">{item.category || "—"}</td>
                         <td
                             className={`px-5 py-4 text-sm font-semibold ${
                                 lowStock ? "text-red-700" : "text-[#342d27]"
