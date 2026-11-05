@@ -73,7 +73,7 @@ type Category = {
   name: string;
   type: "PRODUCT" | "INVENTORY" | "EXPENSE";
 };
-const chargeTypes = ["FIXED", "PER_UNIT", "PERCENTAGE"];
+const chargeTypes = ["PER_ORDER", "PER_UNIT", "FIRST_PURCHASE"];
 
 const characteristicGroups: {
   key: CharacteristicKey;
@@ -1148,7 +1148,7 @@ function EditProductContent() {
                         key: newKey(),
                         name: "",
                         amount: "",
-                        chargeType: "FIXED",
+                        chargeType: "PER_ORDER",
                         required: false,
                         active: true,
                       },
@@ -1246,11 +1246,11 @@ function EditProductContent() {
                             key={type}
                             value={type}
                           >
-                            {type === "FIXED"
-                              ? "Valor fixo"
-                              : type === "PERCENTAGE"
-                                ? "Percentual"
-                                : "Por unidade"}
+                            {type === "PER_ORDER"
+                            ? "Por pedido"
+                            : type === "PER_UNIT"
+                              ? "Por unidade"
+                              : "Primeira compra"}
                           </option>
                         ))}
                       </select>
