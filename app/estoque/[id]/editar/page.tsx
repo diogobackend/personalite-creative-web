@@ -454,8 +454,9 @@ function EditarEstoqueContent() {
                 <label className={LABEL_CLASS}>
                   Nome
                   <input
-                    className={INPUT_CLASS}
+                    className={`${INPUT_CLASS} disabled:cursor-not-allowed`}
                     value={form.name}
+                    disabled={Boolean(productId)}
                     onChange={(event) =>
                       updateField("name", event.target.value)
                     }
@@ -466,7 +467,8 @@ function EditarEstoqueContent() {
                 <label className={LABEL_CLASS}>
                   Categoria
                   <select
-                    className={INPUT_CLASS}
+                    className={`${INPUT_CLASS} disabled:cursor-not-allowed`}
+                    disabled={Boolean(productId)}
                     value={categoryId}
                     onChange={(event) => {
                       const selected = categories.find(
