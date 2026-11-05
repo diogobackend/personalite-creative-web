@@ -1,28 +1,115 @@
+
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Search, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { api } from "../../lib/api";
+import Link from "next/link";
 import Sidebar from "./Sidebar";
 
 type DashboardLayoutProps = {
   children: ReactNode;
 };
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+type JwtPayload = {
+  sub: string;
+};
+
+type UserResponse = {
+  userId: string;
+  name: string;
+};
+
+function getUserIdFromToken(token: string): string {
+  const payload = token.split(".")[1];
+
+  if (!payload) {
+    throw new Error("Token inválido");
+  }
+
+  const normalized = payload
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const decoded = atob(normalized);
+
+  const bytes = Uint8Array.from(decoded, (character) =>
+    character.charCodeAt(0)
+  );
+
+  const data = JSON.parse(
+    new TextDecoder().decode(bytes)
+  ) as JwtPayload;
+
+  if (!data.sub) {
+    throw new Error("Usuário não identificado no token");
+  }
+
+  return data.sub;
+}
+
+function getInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .join("");
+}
+
+export default function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [userName, setUserName] = useState("");
+
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    let active = true;
 
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
+    const loadAuthenticatedUser = async () => {
+      const token = localStorage.getItem("access_token");
 
-    setAuthenticated(true);
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      setAuthenticated(true);
+
+      try {
+        const userId = getUserIdFromToken(token);
+
+        const response = await api.get<UserResponse>(
+          "/users/id",
+          {
+            params: { userId },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (active) {
+          setUserName(response.data.name);
+        }
+      } catch (error) {
+        if (active) {
+          console.error(
+            "Erro ao carregar usuário autenticado:",
+            error
+          );
+        }
+      }
+    };
+
+    void loadAuthenticatedUser();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   if (!authenticated) return null;
@@ -69,27 +156,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Menu className="h-6 w-6" />
             </button>
 
-            <div className="hidden items-center gap-3 rounded-xl border border-[#ece6dc] bg-[#faf9f7] px-4 py-2.5 md:flex">
-              <Search className="h-4 w-4 text-stone-400" />
-              <span className="pr-12 text-sm text-stone-400">
-                Buscar no sistema...
-              </span>
-            </div>
-
             <span className="truncate font-serif text-xl lg:hidden">
               Personalité Creative
             </span>
           </div>
+            <Link
+              href="/perfil"
+              className="flex items-center gap-4"
+              title="Meu Perfil"
+            >
+              <span className="hidden text-xs text-stone-400 transition-colors hover:text-[#9c7e4e] sm:inline">
+                {userName || "Carregando..."}
+              </span>
 
-          <div className="flex items-center gap-4">
-            <span className="hidden text-xs text-stone-400 sm:inline">
-              Painel administrativo
-            </span>
-            <div className="h-7 w-px bg-[#ece6dc]" />
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f3eadb] text-xs font-bold text-[#9c7e4e]">
-              PC
-            </div>
-          </div>
+              <div className="h-7 w-px bg-[#ece6dc]" />
+
+              <div className="flex h-9 min-w-9 items-center justify-center rounded-full bg-[#f3eadb] px-2 text-xs font-bold text-[#9c7e4e] transition-colors hover:bg-[#e9dcc5]">
+                {userName ? getInitials(userName) : "..."}
+              </div>
+            </Link>
+
         </header>
 
         <main className="mx-auto max-w-[1500px] space-y-8 px-5 py-8 sm:px-8 lg:px-10 lg:py-10">

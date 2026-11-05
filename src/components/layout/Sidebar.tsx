@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { api } from "../../lib/api";
 import {
   Boxes,
   ChartNoAxesCombined,
@@ -27,8 +29,52 @@ const navigation = [
 ];
 
 
+type JwtPayload = { sub: string };
+type UserResponse = { userId: string; name: string };
+
+function getUserIdFromToken(token: string): string {
+  const payload = token.split(".")[1];
+  if (!payload) throw new Error("Token inválido");
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const decoded = atob(normalized);
+  const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+  const data = JSON.parse(new TextDecoder().decode(bytes)) as JwtPayload;
+  if (!data.sub) throw new Error("Usuário não identificado no token");
+  return data.sub;
+}
+
+function getInitials(name: string): string {
+  return name.trim().split(/\s+/).map((part) => part.charAt(0)).join("");
+}
+
 export default function Sidebar({ close }: { close: () => void }) {
   const pathname = usePathname();
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUser = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      try {
+        const userId = getUserIdFromToken(token);
+        const response = await api.get<UserResponse>("/users/id", {
+          params: { userId },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (active) setUserName(response.data.name);
+      } catch (error) {
+        if (active) console.error("Erro ao carregar usuário autenticado:", error);
+      }
+    };
+
+    void loadUser();
+    return () => { active = false; };
+  }, []);
+
   return (
     <div className="flex h-full flex-col bg-[#39342f] text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-6 py-7">
@@ -91,31 +137,38 @@ export default function Sidebar({ close }: { close: () => void }) {
 
       <div className="border-t border-white/10 p-4">
         <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#b99b66]/20 text-sm font-semibold text-[#e3c99a]">
-            PC
-          </div>
+          <Link
+            href="/perfil"
+            onClick={close}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-white/10"
+            aria-label="Abrir meu perfil"
+          >
+            <div className="flex h-10 min-w-10 items-center justify-center rounded-full bg-[#b99b66]/20 px-2 text-sm font-semibold text-[#e3c99a]">
+              {userName ? getInitials(userName) : "..."}
+            </div>
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">
-              Administrador
-            </p>
-            <p className="text-xs text-[#bcb0a0]">
-              Personalité Creative
-            </p>
-          </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">
+                {userName || "Carregando..."}
+              </p>
+              <p className="text-xs text-[#bcb0a0]">
+                Personalité Creative
+              </p>
+            </div>
+          </Link>
 
           <button
-              type="button"
-              onClick={() => {
-                localStorage.removeItem("access_token");
-                window.location.replace("/login");
-              }}
-              aria-label="Sair"
-              title="Sair"
-              className="text-[#bcb0a0] hover:text-white"
-            >
-  <LogOut className="h-4 w-4" />
-</button>
+            type="button"
+            onClick={() => {
+              localStorage.removeItem("access_token");
+              window.location.replace("/login");
+            }}
+            aria-label="Sair"
+            title="Sair"
+            className="text-[#bcb0a0] hover:text-white"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 import axios from "axios";
 import { env } from "../config/env";
 
@@ -12,7 +13,10 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isPasswordValidation =
+      error.config?.headers?.["X-Password-Validation"] === "true";
+
+    if (error.response?.status === 401 && !isPasswordValidation) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
 
