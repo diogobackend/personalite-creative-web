@@ -16,6 +16,8 @@ const SECTIONS = [
   { type: "EXPENSE", title: "Despesas", icon: ReceiptText },
 ] as const;
 
+
+
 const INPUT_CLASS = "w-full rounded-xl border border-[#e8e0d4] bg-white px-4 py-3 text-sm text-[#342d27] outline-none transition placeholder:text-[#aaa197] focus:border-[#a98a58] focus:ring-2 focus:ring-[#a98a58]/15";
 const SECONDARY_CLASS = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#e8e0d4] bg-white px-4 py-2.5 text-sm font-semibold text-[#51473d] transition hover:bg-[#f8f5f0] disabled:opacity-50";
 const PRIMARY_CLASS = "inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-50";
@@ -79,6 +81,19 @@ export default function CategoriasPage() {
     void loadCategories(controller.signal);
     return () => controller.abort();
   }, [loadCategories, reloadKey]);
+
+  const productCategoryCodes = useMemo(() => {
+    const products = categories
+      .filter((category) => category.type === "PRODUCT")
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    return new Map(
+      products.map((category, index) => [
+        category.id,
+        String(index + 1).padStart(2, "0"),
+      ])
+    );
+  }, [categories]);
 
   const filtered = useMemo(() => categories.filter((category) =>
     category.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")) &&
@@ -252,7 +267,14 @@ export default function CategoriasPage() {
                             <td className="px-5 py-3.5">
                               {editing ? (
                                 <input autoFocus aria-label={`Editar nome de ${category.name}`} className={`${INPUT_CLASS} max-w-xl py-2`} maxLength={150} value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleUpdate(category); } if (event.key === "Escape") setEditingId(null); }} disabled={busy} />
-                              ) : <span className="text-sm font-semibold text-[#342d27]">{category.name}</span>}
+                              ) : <span className="inline-flex items-center gap-3 text-sm font-semibold text-[#342d27]">
+                                  {category.name}
+                                  {category.type === "PRODUCT" && (
+                                    <span className="rounded-md bg-[#f4ede2] px-2 py-1 text-xs font-bold text-[#927448]">
+                                      {productCategoryCodes.get(category.id)}
+                                    </span>
+                                  )}
+                                </span>}
                             </td>
                             <td className="px-5 py-3.5">
                               <div className="flex items-center justify-center gap-1.5">
