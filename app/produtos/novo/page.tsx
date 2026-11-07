@@ -220,7 +220,7 @@ export default function NovoProdutoPage() {
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           <section className={sectionClass}>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              <Field label="Código" required><input className={inputClass} value={form.code} maxLength={3} inputMode="numeric" placeholder="Ex.: 0703" onChange={(e) => updateForm("code", e.target.value.replace(/\D/g, ""))} /></Field>
+              <Field label="Código" required><input className={inputClass} value={form.code} maxLength={4} inputMode="numeric" placeholder="Ex.: 0703" onChange={(e) => updateForm("code", e.target.value.replace(/\D/g, ""))} /></Field>
               <div className="lg:col-span-2"><Field label="Nome" required><input className={inputClass} value={form.name} maxLength={255} placeholder="Produto" onChange={(e) => updateForm("name", e.target.value)} /></Field></div>
               <Field label="Categoria" required><select className={inputClass} value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)}><option value="">Selecione uma categoria</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
               <Field label="Tipo de precificação" required><select className={inputClass} value={form.pricingType} onChange={(e) => updateForm("pricingType", e.target.value as PricingType)}>{pricingTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></Field>
