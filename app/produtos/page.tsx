@@ -142,7 +142,11 @@ export default function ProductsPageScreen() {
       signal: controller.signal,
     }).then(({ data }) => {
       if (!controller.signal.aborted) {
-        setCategories(data.filter((category) => category.type === "PRODUCT"));
+        setCategories(
+          data
+            .filter((category) => category.type === "PRODUCT")
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+        );
       }
     }).catch((error) => {
       if (!controller.signal.aborted && !axios.isCancel(error)) {
@@ -470,7 +474,10 @@ export default function ProductsPageScreen() {
                       className="odd:bg-white even:bg-[#e9e3da] hover:!bg-[#ded3c4] transition-colors"
                     >
 
-                      <td className="px-6 py-4 text-sm font-semibold text-[#a98a58]">{product.code}</td>
+                      <td className="px-6 py-4 text-sm font-semibold">
+                        <span className="text-[#2563eb]">{product.code.slice(0, 2)}</span>
+                        <span className="text-[#a98a58]">{product.code.slice(2)}</span>
+                      </td>
                       <td className="px-4 py-4">
                       <Link
                         href={`/produtos/${product.id}`}
