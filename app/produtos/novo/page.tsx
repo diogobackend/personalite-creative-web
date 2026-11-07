@@ -155,7 +155,7 @@ export default function NovoProdutoPage() {
     event.preventDefault();
     setError(null);
 
-    if (!/^\d{3}$/.test(form.code)) return setError("O código deve conter exatamente 3 números.");
+    if (!/^\d{4}$/.test(form.code)) return setError("O código deve conter exatamente 4 números.");
     if (!form.name.trim()) return setError("Informe o nome do produto.");
     const selectedCategory = categories.find((category) => category.id === form.categoryId);
     if (!selectedCategory) return setError("Selecione uma categoria válida.");
