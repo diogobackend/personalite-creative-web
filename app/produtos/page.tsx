@@ -264,7 +264,7 @@ export default function ProductsPageScreen() {
             </div>
             <div className="min-w-[110px] flex-1 sm:max-w-[180px]">
               <Field label="Código">
-                <input className={inputClass} inputMode="numeric" maxLength={3} placeholder="Ex.: 011" value={draft.code} onChange={(e) => update("code", e.target.value.replace(/\D/g, ""))} />
+                <input className={inputClass} inputMode="numeric" maxLength={4} placeholder="Ex.: 0703" value={draft.code} onChange={(e) => update("code", e.target.value.replace(/\D/g, ""))} />
               </Field>
             </div>
             <button type="submit" className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl bg-[#39342f] px-5 text-sm font-semibold text-white hover:bg-[#514941]">
