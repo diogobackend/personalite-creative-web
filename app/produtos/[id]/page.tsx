@@ -58,6 +58,9 @@ type InventoryItem = {
   name: string;
   productId: string | null;
   sku: string | null;
+  category?: string | null;
+  description?: string | null;
+  unit?: string | null;
   quantity: number;
   minimumQuantity: number | null;
   createdAt?: string | null;
@@ -80,12 +83,65 @@ function inventoryVariation(item: InventoryItem): string {
     .join(" · ") || "—";
 }
 
+type SalePaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID";
+type ProductSale = {
+  id: string;
+  customerId: string;
+  totalAmount: number;
+  paymentStatus: SalePaymentStatus;
+  createdAt: string;
+  quantity: number;
+  deliveryDeadline?: string | null;
+  deliveredAt?: string | null;
+  remainingAmount?: number;
+  downPaymentPercentage?: number;
+  paidPercentage?: number;
+  remainingPercentage?: number;
+  paymentMethod?: string;
+  observation?: string | null;
+  deadlineStatus?: string;
+  items?: Array<{ productId: string; quantity: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
+};
+type SalePage = {
+  sales: Array<{
+    id: string;
+    customerId: string;
+    totalAmount: number;
+    paymentStatus: SalePaymentStatus;
+    createdAt: string;
+    deliveryDeadline?: string | null;
+    deliveredAt?: string | null;
+    remainingAmount?: number;
+    downPaymentPercentage?: number;
+    paidPercentage?: number;
+    remainingPercentage?: number;
+    paymentMethod?: string;
+    observation?: string | null;
+    deadlineStatus?: string;
+    items: Array<{ productId: string; quantity: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
+  }>;
+  pagination: { totalPages: number };
+};
+const salePaymentLabels: Record<SalePaymentStatus, string> = {
+  UNPAID: "Não paga", PARTIALLY_PAID: "Parcialmente paga", PAID: "Paga",
+};
+const salePaymentClasses: Record<SalePaymentStatus, string> = {
+  UNPAID: "bg-red-50 text-red-700",
+  PARTIALLY_PAID: "bg-amber-50 text-amber-700",
+  PAID: "bg-green-50 text-green-700",
+};
+
 type ExpenseStatus = "PENDING" | "PAID" | "CANCELLED";
 type Expense = {
   id: string;
   name: string;
   value: number;
   status: ExpenseStatus;
+  category?: string;
+  description?: string | null;
+  allocationType?: string;
+  quantity?: number | null;
+  createdAt?: string;
   expenseDate: string;
   products: { productId: string; allocatedValue: number }[];
 };
@@ -99,6 +155,11 @@ type ProductExpense = {
   status: ExpenseStatus;
   expenseDate: string;
   allocatedValue: number;
+  category?: string;
+  description?: string | null;
+  allocationType?: string;
+  quantity?: number | null;
+  createdAt?: string;
 };
 const expenseStatusLabels: Record<ExpenseStatus, string> = {
   PENDING: "Pendente", PAID: "Pago", CANCELLED: "Cancelado",
@@ -170,6 +231,35 @@ function ProductDetailsContent() {
   const [inventoryVariationFilter, setInventoryVariationFilter] = useState("");
   const [inventoryMinQuantity, setInventoryMinQuantity] = useState("");
   const [inventoryMaxQuantity, setInventoryMaxQuantity] = useState("");
+  const [inventoryAdvanced, setInventoryAdvanced] = useState<Record<string, string>>({});
+  const setInventoryAdvancedField = (field: string, value: string) =>
+    setInventoryAdvanced((previous) => ({ ...previous, [field]: value }));
+  const [sales, setSales] = useState<ProductSale[]>([]);
+  const [salesLoading, setSalesLoading] = useState(true);
+  const [salesError, setSalesError] = useState<string | null>(null);
+  const [saleCustomerNames, setSaleCustomerNames] = useState<Record<string, string>>({});
+  const [saleCustomer, setSaleCustomer] = useState("");
+  const [saleCustomerSearch, setSaleCustomerSearch] = useState("");
+  const [saleDateFrom, setSaleDateFrom] = useState("");
+  const [saleDateTo, setSaleDateTo] = useState("");
+  const [saleValueFrom, setSaleValueFrom] = useState("");
+  const [saleValueTo, setSaleValueTo] = useState("");
+  const [saleStatus, setSaleStatus] = useState("");
+  const [saleCustomerOpen, setSaleCustomerOpen] = useState(false);
+  const [saleAdvanced, setSaleAdvanced] = useState<Record<string, string>>({});
+  const setSaleAdvancedField = (field: string, value: string) => setSaleAdvanced((previous) => ({ ...previous, [field]: value }));
+  const saleAdvancedTextFields = [
+    ["search", "Busca geral", "Cliente ou observação"],
+    ["color", "Cor", "Cor do item"], ["brand", "Marca", "Marca do item"],
+    ["model", "Modelo", "Modelo do item"], ["size", "Tamanho", "Tamanho do item"],
+    ["material", "Material", "Material do item"], ["observation", "Observação", "Texto da observação"],
+  ];
+  const saleAdvancedNumberFields = [
+    ["minRemainingAmount", "Restante mínimo"], ["maxRemainingAmount", "Restante máximo"],
+    ["downPaymentFrom", "Entrada (%) de"], ["downPaymentTo", "Entrada (%) até"],
+    ["paidFrom", "Pago (%) de"], ["paidTo", "Pago (%) até"],
+    ["remainingFrom", "Restante (%) de"], ["remainingTo", "Restante (%) até"],
+  ];
   const [expenses, setExpenses] = useState<ProductExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [expensesError, setExpensesError] = useState<string | null>(null);
@@ -178,6 +268,9 @@ function ProductDetailsContent() {
   const [dateTo, setDateTo] = useState("");
   const [valueFrom, setValueFrom] = useState("");
   const [valueTo, setValueTo] = useState("");
+  const [expenseAdvanced, setExpenseAdvanced] = useState<Record<string, string>>({});
+  const setExpenseAdvancedField = (field: string, value: string) =>
+    setExpenseAdvanced((previous) => ({ ...previous, [field]: value }));
 
 
   useEffect(() => {
@@ -236,6 +329,11 @@ function ProductDetailsContent() {
                 status: expense.status,
                 expenseDate: expense.expenseDate,
                 allocatedValue: Number(allocation.allocatedValue),
+                category: expense.category,
+                description: expense.description,
+                allocationType: expense.allocationType,
+                quantity: expense.quantity,
+                createdAt: expense.createdAt,
               });
             }
           }
@@ -302,6 +400,116 @@ function ProductDetailsContent() {
     return () => controller.abort();
   }, [id, reloadKey]);
 
+  useEffect(() => {
+    if (!id) return;
+    const controller = new AbortController();
+    async function loadSales() {
+      setSalesLoading(true);
+      setSalesError(null);
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token || token === "undefined" || token === "null") throw new Error("Sessão não encontrada.");
+        const headers = { Authorization: `Bearer ${token}` };
+        const collected: ProductSale[] = [];
+        let page = 0;
+        let totalPages = 1;
+        do {
+          const { data } = await api.get<SalePage>("/sales", {
+            headers,
+            params: { page, size: 100, sortBy: "createdAt", sortDirection: "DESC" },
+            signal: controller.signal,
+          });
+          for (const sale of data.sales ?? []) {
+            const items = sale.items?.filter((item) => item.productId === id) ?? [];
+            if (items.length) collected.push({
+              id: sale.id,
+              customerId: sale.customerId,
+              totalAmount: sale.totalAmount,
+              paymentStatus: sale.paymentStatus,
+              createdAt: sale.createdAt,
+              quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+              items,
+              deliveryDeadline: sale.deliveryDeadline,
+              deliveredAt: sale.deliveredAt,
+              remainingAmount: sale.remainingAmount,
+              downPaymentPercentage: sale.downPaymentPercentage,
+              paidPercentage: sale.paidPercentage,
+              remainingPercentage: sale.remainingPercentage,
+              paymentMethod: sale.paymentMethod,
+              observation: sale.observation,
+              deadlineStatus: sale.deadlineStatus,
+            });
+          }
+          totalPages = data.pagination?.totalPages ?? 1;
+          page += 1;
+        } while (page < totalPages && !controller.signal.aborted);
+        if (controller.signal.aborted) return;
+        setSales(collected.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+        const customerIds = [...new Set(collected.map((sale) => sale.customerId))];
+        const responses = await Promise.allSettled(customerIds.map(async (userId) => {
+          const { data } = await api.get<{ name: string }>("/users/id", {
+            headers, params: { userId }, signal: controller.signal,
+          });
+          return { userId, name: data.name };
+        }));
+        if (!controller.signal.aborted) setSaleCustomerNames(Object.fromEntries(
+          responses.filter((result): result is PromiseFulfilledResult<{ userId: string; name: string }> => result.status === "fulfilled")
+            .map((result) => [result.value.userId, result.value.name]),
+        ));
+      } catch (cause) {
+        if (!controller.signal.aborted) setSalesError(axios.isAxiosError(cause)
+          ? `Não foi possível carregar as vendas${cause.response ? ` (HTTP ${cause.response.status})` : ""}.`
+          : cause instanceof Error ? cause.message : "Erro ao carregar vendas.");
+      } finally {
+        if (!controller.signal.aborted) setSalesLoading(false);
+      }
+    }
+    void loadSales();
+    return () => controller.abort();
+  }, [id, reloadKey]);
+
+  const filteredSales = sales.filter((sale) => {
+    if (saleCustomer && sale.customerId !== saleCustomer) return false;
+    const date = sale.createdAt.slice(0, 10);
+    if (saleDateFrom && date < saleDateFrom) return false;
+    if (saleDateTo && date > saleDateTo) return false;
+    if (saleValueFrom !== "" && sale.totalAmount < Number(saleValueFrom)) return false;
+    if (saleValueTo !== "" && sale.totalAmount > Number(saleValueTo)) return false;
+    if (saleStatus && sale.paymentStatus !== saleStatus) return false;
+    const advanced = saleAdvanced;
+    const contains = (value: string | null | undefined, query: string) => (value ?? "").toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
+    const search = advanced.search?.trim();
+    if (search && ![saleCustomerNames[sale.customerId], sale.observation].some((value) => contains(value, search))) return false;
+    if (advanced.observation?.trim() && !contains(sale.observation, advanced.observation)) return false;
+    for (const field of ["color", "brand", "model", "size", "material"] as const) {
+      if (advanced[field]?.trim() && !sale.items?.some((item) => contains(item[field], advanced[field]))) return false;
+    }
+    const ranges: Array<[string, string, number | undefined]> = [
+      ["minRemainingAmount", "min", sale.remainingAmount], ["maxRemainingAmount", "max", sale.remainingAmount],
+      ["downPaymentFrom", "min", sale.downPaymentPercentage], ["downPaymentTo", "max", sale.downPaymentPercentage],
+      ["paidFrom", "min", sale.paidPercentage], ["paidTo", "max", sale.paidPercentage],
+      ["remainingFrom", "min", sale.remainingPercentage], ["remainingTo", "max", sale.remainingPercentage],
+    ];
+    if (ranges.some(([key, side, value]) => advanced[key]?.trim() && (value == null || (side === "min" ? value < Number(advanced[key]) : value > Number(advanced[key]))))) return false;
+    if (advanced.paymentMethod && sale.paymentMethod !== advanced.paymentMethod) return false;
+    if (advanced.deliveryDeadlineFrom && (!sale.deliveryDeadline || sale.deliveryDeadline.slice(0, 10) < advanced.deliveryDeadlineFrom)) return false;
+    if (advanced.deliveryDeadlineTo && (!sale.deliveryDeadline || sale.deliveryDeadline.slice(0, 10) > advanced.deliveryDeadlineTo)) return false;
+    if (advanced.createdAtFrom && date < advanced.createdAtFrom) return false;
+    if (advanced.createdAtTo && date > advanced.createdAtTo) return false;
+    if (advanced.delivered === "yes" && !sale.deliveredAt) return false;
+    if (advanced.delivered === "no" && sale.deliveredAt) return false;
+    if (advanced.deadlineStatus && sale.deadlineStatus !== advanced.deadlineStatus) return false;
+    if (advanced.dueWithinDays) {
+      if (!sale.deliveryDeadline) return false;
+      const days = Math.ceil((new Date(sale.deliveryDeadline.slice(0, 10) + "T00:00:00").getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
+      if (days < 0 || days > Number(advanced.dueWithinDays)) return false;
+    }
+
+    return true;
+  });
+  const totalFilteredSales = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalSoldUnits = filteredSales.reduce((sum, sale) => sum + sale.quantity, 0);
+
   const filteredInventory = inventoryItems.filter((item) => {
     if (inventoryName.trim() && !(product?.name ?? item.name).toLocaleLowerCase("pt-BR").includes(inventoryName.trim().toLocaleLowerCase("pt-BR"))) return false;
     const registeredAt = item.createdAt?.slice(0, 10) ?? "";
@@ -311,6 +519,17 @@ function ProductDetailsContent() {
     if (inventoryVariationFilter.trim() && !inventoryVariation(item).toLocaleLowerCase("pt-BR").includes(inventoryVariationFilter.trim().toLocaleLowerCase("pt-BR"))) return false;
     if (inventoryMinQuantity !== "" && item.quantity < Number(inventoryMinQuantity)) return false;
     if (inventoryMaxQuantity !== "" && item.quantity > Number(inventoryMaxQuantity)) return false;
+    const advanced = inventoryAdvanced;
+    const contains = (value: string | null | undefined, query: string) =>
+      (value ?? "").toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
+    if (advanced.category && item.category !== advanced.category) return false;
+    if (advanced.description?.trim() && !contains(item.description, advanced.description)) return false;
+    if (advanced.quantity !== undefined && advanced.quantity !== "" && item.quantity !== Number(advanced.quantity)) return false;
+    if (advanced.unit && item.unit !== advanced.unit) return false;
+    for (const field of ["color", "size", "material", "brand", "model"] as const) {
+      if (advanced[field]?.trim() && !contains(item[field], advanced[field])) return false;
+    }
+    if (advanced.createdAt && registeredAt !== advanced.createdAt) return false;
     return true;
   });
 
@@ -321,6 +540,21 @@ function ProductDetailsContent() {
     if (dateTo && date > dateTo) return false;
     if (valueFrom !== "" && expense.allocatedValue < Number(valueFrom)) return false;
     if (valueTo !== "" && expense.allocatedValue > Number(valueTo)) return false;
+    const advanced = expenseAdvanced;
+    const contains = (value: string | null | undefined, query: string) =>
+      (value ?? "").toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
+    if (advanced.description?.trim() && !contains(expense.description, advanced.description)) return false;
+    if (advanced.category && expense.category !== advanced.category) return false;
+    if (advanced.status && expense.status !== advanced.status) return false;
+    if (advanced.allocationType && expense.allocationType !== advanced.allocationType) return false;
+    if (advanced.exactValue !== "" && advanced.exactValue !== undefined && expense.allocatedValue !== Number(advanced.exactValue)) return false;
+    if (advanced.quantity !== "" && advanced.quantity !== undefined && expense.quantity !== Number(advanced.quantity)) return false;
+    if (advanced.minQuantity !== "" && advanced.minQuantity !== undefined && (expense.quantity == null || expense.quantity < Number(advanced.minQuantity))) return false;
+    if (advanced.maxQuantity !== "" && advanced.maxQuantity !== undefined && (expense.quantity == null || expense.quantity > Number(advanced.maxQuantity))) return false;
+    if (advanced.exactDate && date !== advanced.exactDate) return false;
+    const created = expense.createdAt?.slice(0, 10) ?? "";
+    if (advanced.createdFrom && (!created || created < advanced.createdFrom)) return false;
+    if (advanced.createdTo && (!created || created > advanced.createdTo)) return false;
     return true;
   });
 
@@ -507,6 +741,141 @@ function ProductDetailsContent() {
   </section>
 )}
 
+ {!salesLoading && !salesError && sales.length > 0 && (
+  <section className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h3 className="text-sm font-semibold text-[#342d27]">Histórico de vendas ({filteredSales.length})</h3>
+      <Link href="/vendas/nova" className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#927448]">
+        <Plus className="h-4 w-4" /> Nova venda
+      </Link>
+    </div>
+    <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="relative block text-xs font-semibold text-stone-600 sm:col-span-2 lg:col-span-3">
+        Cliente
+        <input type="search" autoComplete="off" value={saleCustomerSearch}
+          onFocus={() => setSaleCustomerOpen(true)}
+          onBlur={() => window.setTimeout(() => setSaleCustomerOpen(false), 150)}
+          onChange={(event) => { setSaleCustomerSearch(event.target.value); setSaleCustomer(""); setSaleCustomerOpen(true); }}
+          placeholder="Digite para selecionar um cliente cadastrado"
+          className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+        {saleCustomerOpen && (
+          <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-[#e8e0d4] bg-white shadow-lg">
+            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setSaleCustomer(""); setSaleCustomerSearch(""); setSaleCustomerOpen(false); }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[#f8f3eb]">Todos os clientes</button>
+            {Object.entries(saleCustomerNames)
+              .filter(([, name]) => name.toLocaleLowerCase("pt-BR").includes(saleCustomerSearch.trim().toLocaleLowerCase("pt-BR")))
+              .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"))
+              .map(([customerId, name]) => (
+                <button key={customerId} type="button" onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => { setSaleCustomer(customerId); setSaleCustomerSearch(name); setSaleCustomerOpen(false); }}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-[#f8f3eb]">{name}</button>
+              ))}
+          </div>
+        )}
+      </div>
+      <label className="block text-xs font-semibold text-stone-600">Data da compra — de
+        <input type="date" value={saleDateFrom} onChange={(event) => setSaleDateFrom(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+      </label>
+      <label className="block text-xs font-semibold text-stone-600">Data da compra — até
+        <input type="date" value={saleDateTo} onChange={(event) => setSaleDateTo(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+      </label>
+      <label className="block text-xs font-semibold text-stone-600">Valor da compra — de (R$)
+        <input type="number" min="0" step="0.01" value={saleValueFrom} onChange={(event) => setSaleValueFrom(event.target.value)} placeholder="0,00" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+      </label>
+      <label className="block text-xs font-semibold text-stone-600">Valor da compra — até (R$)
+        <input type="number" min="0" step="0.01" value={saleValueTo} onChange={(event) => setSaleValueTo(event.target.value)} placeholder="0,00" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+      </label>
+      <label className="block text-xs font-semibold text-stone-600 lg:col-start-4 lg:row-start-1">Status de pagamento
+        <select value={saleStatus} onChange={(event) => setSaleStatus(event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]">
+          <option value="">Todos</option><option value="UNPAID">Não paga</option><option value="PARTIALLY_PAID">Parcialmente paga</option><option value="PAID">Paga</option>
+        </select>
+      </label>
+    </div>
+    <details className="group mb-5">
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true">☰</span> Filtros avançados
+        {Object.values(saleAdvanced).some((value) => value.trim()) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
+        <span className="transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {saleAdvancedTextFields.map(([field, label, placeholder]) => (
+          <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+            <input type="search" value={saleAdvanced[field] ?? ""} onChange={(event) => setSaleAdvancedField(field, event.target.value)} placeholder={placeholder}
+              className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm outline-none focus:border-[#a98a58]" />
+          </label>
+        ))}
+        <label className="block text-xs font-semibold text-stone-600">Forma de pagamento
+          <select value={saleAdvanced.paymentMethod ?? ""} onChange={(event) => setSaleAdvancedField("paymentMethod", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todas</option>
+            {[...new Set(sales.map((sale) => sale.paymentMethod).filter((method): method is string => Boolean(method)))].map((method) => (
+            <option key={method} value={method}>
+              {({
+                DEBIT_CARD: "Cartão de débito",
+                CREDIT_CARD: "Cartão de crédito",
+                PIX: "Pix",
+                CASH: "Dinheiro",
+                BANK_TRANSFER: "Transferência bancária",
+                BOLETO: "Boleto",
+              } as Record<string, string>)[method] ?? method}
+            </option>
+          ))}
+          </select>
+        </label>
+        {saleAdvancedNumberFields.map(([field, label]) => (
+          <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+            <input type="number" min="0" step={field.includes("Amount") ? "0.01" : "1"} max={field.includes("Amount") ? undefined : 100}
+              value={saleAdvanced[field] ?? ""} onChange={(event) => setSaleAdvancedField(field, event.target.value)} placeholder="0"
+              className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+          </label>
+        ))}
+        {([ ["deliveryDeadlineFrom", "Entrega de"], ["deliveryDeadlineTo", "Entrega até"], ["createdAtFrom", "Cadastro de"], ["createdAtTo", "Cadastro até"] ] as const).map(([field, label]) => (
+          <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+            <input type="date" value={saleAdvanced[field] ?? ""} onChange={(event) => setSaleAdvancedField(field, event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+          </label>
+        ))}
+        <label className="block text-xs font-semibold text-stone-600">Vence em até (dias)
+          <input type="number" min="0" value={saleAdvanced.dueWithinDays ?? ""} onChange={(event) => setSaleAdvancedField("dueWithinDays", event.target.value)} placeholder="Ex.: 15" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+        </label>
+        <label className="block text-xs font-semibold text-stone-600">Prazo
+          <select value={saleAdvanced.deadlineStatus ?? ""} onChange={(event) => setSaleAdvancedField("deadlineStatus", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todos</option><option value="OVERDUE">Atrasadas</option><option value="DUE_TODAY">Vencem hoje</option><option value="NO_DEADLINE">Sem prazo</option><option value="ON_TIME">No prazo</option>
+          </select>
+        </label>
+        <label className="block text-xs font-semibold text-stone-600">Entrega
+          <select value={saleAdvanced.delivered ?? ""} onChange={(event) => setSaleAdvancedField("delivered", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todas</option><option value="yes">Entregues</option><option value="no">Não entregues</option>
+          </select>
+        </label>
+      </div>
+    </details>
+    <div className="overflow-x-auto rounded-xl border border-[#eee8df] bg-white">
+      <table className="w-full min-w-[780px] text-left text-sm">
+        <thead className="bg-[#faf9f7] text-xs text-stone-500"><tr>
+          <th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Qtd</th><th className="px-4 py-3">Valor</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Data</th><th className="px-4 py-3 text-right">Visualizar / Editar</th>
+        </tr></thead>
+        <tbody className="divide-y divide-[#f0ece5]">
+          {filteredSales.map((sale) => <tr key={sale.id} className="odd:bg-white even:bg-[#e9e3da] transition-colors hover:!bg-[#ded3c4]">
+            <td className="px-4 py-4 font-medium">{saleCustomerNames[sale.customerId] ?? "Cliente indisponível"}</td>
+            <td className="px-4 py-4">{number.format(sale.quantity)}</td>
+            <td className="px-4 py-4 font-semibold">{currency.format(sale.totalAmount)}</td>
+            <td className="px-4 py-4"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${salePaymentClasses[sale.paymentStatus]}`}>{salePaymentLabels[sale.paymentStatus]}</span></td>
+            <td className="px-4 py-4">{expenseDate(sale.createdAt)}</td>
+            <td className="px-4 py-4"><div className="flex items-center justify-end gap-2">
+              <Link href={`/vendas/${encodeURIComponent(sale.id)}`} title="Visualizar venda" aria-label="Visualizar venda" className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Eye size={17} /></Link>
+              <Link href={`/vendas/${encodeURIComponent(sale.id)}/atualizar`} title="Atualizar venda" aria-label="Atualizar venda" className="rounded-lg border border-[#eee8df] p-2 text-[#927448] hover:bg-[#f7f0e6]"><Pencil size={17} /></Link>
+            </div></td>
+          </tr>)}
+          {filteredSales.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">Nenhuma venda encontrada.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6d7c2] bg-[#efe4d4] px-5 py-4">
+      <span className="text-sm font-semibold text-[#51473d]">{number.format(totalSoldUnits)} unidade(s) · Total das vendas que incluem este produto</span>
+      <span className="text-xl font-bold text-[#342d27]">{currency.format(totalFilteredSales)}</span>
+    </div>
+  </section>
+ )}
+
 {!expensesLoading && !expensesError && expenses.length > 0 && (
 
 <div className="rounded-2xl border border-[#e8d9c4] bg-[#f8f3eb] p-5 sm:p-6">
@@ -583,6 +952,45 @@ function ProductDetailsContent() {
         />
       </label>
     </div>
+
+    <details className="group mb-5">
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true">☰</span> Filtros avançados
+        {Object.values(expenseAdvanced).some((value) => value.trim()) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
+        <span className="transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="block text-xs font-semibold text-stone-600">Categoria
+          <select value={expenseAdvanced.category ?? ""} onChange={(event) => setExpenseAdvancedField("category", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todas as categorias</option>
+            {[...new Set(expenses.map((expense) => expense.category).filter((category): category is string => Boolean(category)))].sort((a, b) => a.localeCompare(b, "pt-BR")).map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-semibold text-stone-600">Descrição
+          <input type="search" value={expenseAdvanced.description ?? ""} onChange={(event) => setExpenseAdvancedField("description", event.target.value)} placeholder="Buscar pela descrição" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+        </label>
+        <label className="block text-xs font-semibold text-stone-600">Status
+          <select value={expenseAdvanced.status ?? ""} onChange={(event) => setExpenseAdvancedField("status", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todos os status</option><option value="PENDING">Pendente</option><option value="PAID">Pago</option><option value="CANCELLED">Cancelado</option>
+          </select>
+        </label>
+        <label className="block text-xs font-semibold text-stone-600">Tipo de alocação
+          <select value={expenseAdvanced.allocationType ?? ""} onChange={(event) => setExpenseAdvancedField("allocationType", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+            <option value="">Todas as alocações</option><option value="GENERAL">Geral</option><option value="SPECIFIC_PRODUCT">Produto específico</option><option value="CATEGORY_PRODUCTS">Diversos produtos por categoria</option>
+          </select>
+        </label>
+        {([ ["exactValue", "Valor alocado exato (R$)", "0.01"], ["quantity", "Quantidade exata", "1"], ["minQuantity", "Quantidade mínima", "1"], ["maxQuantity", "Quantidade máxima", "1"] ] as const).map(([field, label, step]) => (
+          <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+            <input type="number" min="0" step={step} value={expenseAdvanced[field] ?? ""} onChange={(event) => setExpenseAdvancedField(field, event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+          </label>
+        ))}
+        {([ ["exactDate", "Data exata da despesa"], ["createdFrom", "Cadastro a partir de"], ["createdTo", "Cadastro até"] ] as const).map(([field, label]) => (
+          <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+            <input type="date" value={expenseAdvanced[field] ?? ""} onChange={(event) => setExpenseAdvancedField(field, event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+          </label>
+        ))}
+      </div>
+    </details>
 
     {expensesLoading ? (
       <p className="rounded-xl border border-[#eee8df] p-5 text-sm text-stone-500">
@@ -716,7 +1124,7 @@ function ProductDetailsContent() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
             <label className="block text-xs font-semibold text-stone-600">
               Nome
-              <input type="search" value={inventoryName} onChange={(event) => setInventoryName(event.target.value)} placeholder="Buscar pelo nome do produto" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              <input type="search" value={inventoryName} onChange={(event) => setInventoryName(event.target.value)} placeholder="Buscar pelo nome" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
             </label>
             <label className="block text-xs font-semibold text-stone-600">
               Data de cadastro — de
@@ -731,7 +1139,7 @@ function ProductDetailsContent() {
           <details className="group mt-4">
             <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
               <span aria-hidden="true">☰</span> Filtros avançados
-              {(inventorySku || inventoryVariationFilter || inventoryMinQuantity || inventoryMaxQuantity) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
+              {(inventorySku || inventoryVariationFilter || inventoryMinQuantity || inventoryMaxQuantity || Object.values(inventoryAdvanced).some(Boolean)) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
               <span className="transition-transform group-open:rotate-180">⌄</span>
             </summary>
             <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -746,6 +1154,32 @@ function ProductDetailsContent() {
               </label>
               <label className="block text-xs font-semibold text-stone-600">Qtd máxima disponível
                 <input type="number" min="0" step="1" value={inventoryMaxQuantity} onChange={(event) => setInventoryMaxQuantity(event.target.value)} placeholder="0" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm text-[#342d27] outline-none focus:border-[#a98a58]" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Categoria
+                <select value={inventoryAdvanced.category ?? ""} onChange={(event) => setInventoryAdvancedField("category", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+                  <option value="">Todas as categorias</option>
+                  {[...new Set(inventoryItems.map((item) => item.category).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, "pt-BR")).map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Descrição
+                <input type="search" value={inventoryAdvanced.description ?? ""} onChange={(event) => setInventoryAdvancedField("description", event.target.value)} placeholder="Buscar na descrição" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Quantidade exata
+                <input type="number" min="0" step="1" value={inventoryAdvanced.quantity ?? ""} onChange={(event) => setInventoryAdvancedField("quantity", event.target.value)} placeholder="Ex.: 50" className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+              </label>
+              <label className="block text-xs font-semibold text-stone-600">Unidade de medida
+                <select value={inventoryAdvanced.unit ?? ""} onChange={(event) => setInventoryAdvancedField("unit", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm">
+                  <option value="">Todas as unidades</option>
+                  {([ ["UN", "Unidade (un)"], ["PAR", "Par"], ["KIT", "Kit"], ["CX", "Caixa"], ["PCT", "Pacote"], ["DZ", "Dúzia"], ["M", "Metro (m)"], ["CM", "Centímetro (cm)"], ["M2", "Metro quadrado (m²)"], ["KG", "Quilograma (kg)"], ["G", "Grama (g)"], ["L", "Litro (L)"], ["ML", "Mililitro (mL)"], ["ROLO", "Rolo"], ["FOLHA", "Folha"] ] as const).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              {([ ["color", "Cor", "Ex.: Branco"], ["size", "Tamanho", "Ex.: M"], ["material", "Material", "Ex.: Algodão"], ["brand", "Marca", "Buscar marca"], ["model", "Modelo", "Buscar modelo"] ] as const).map(([field, label, placeholder]) => (
+                <label key={field} className="block text-xs font-semibold text-stone-600">{label}
+                  <input type="search" value={inventoryAdvanced[field] ?? ""} onChange={(event) => setInventoryAdvancedField(field, event.target.value)} placeholder={placeholder} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
+                </label>
+              ))}
+              <label className="block text-xs font-semibold text-stone-600">Data exata de cadastro
+                <input type="date" value={inventoryAdvanced.createdAt ?? ""} onChange={(event) => setInventoryAdvancedField("createdAt", event.target.value)} className="mt-2 w-full rounded-xl border border-[#e8e0d4] bg-white px-3 py-3 text-sm" />
               </label>
             </div>
           </details>
