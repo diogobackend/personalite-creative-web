@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
@@ -149,7 +150,7 @@ export default function NewSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const updateForm = <K extends keyof SaleForm>(field: K, value: SaleForm[K]) =>
     setForm((previous) => ({ ...previous, [field]: value }));
   const updateItem = (key: number, patch: Partial<Omit<SaleItemForm, "key">>) =>
@@ -199,7 +200,9 @@ export default function NewSalePage() {
         })));
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
-        setError("Não foi possível carregar clientes ou produtos.");
+
+        toast.error("Não foi possível carregar clientes ou produtos.");
+
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -214,21 +217,23 @@ export default function NewSalePage() {
   const paidPercentage = Number(form.paidPercentage);
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
+
     if (form.items.length === 0 || form.items.some((item) => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1)) {
-      setError("Selecione pelo menos um produto e informe uma quantidade válida."); return;
+      toast.error("Selecione pelo menos um produto e informe uma quantidade válida."); return;
     }
     if (form.items.some((item) => {
       const price = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity);
       return price == null || price <= 0;
     })) {
-      setError("Um ou mais produtos estão sem preço de venda válido."); return;
+
+      toast.error("Um ou mais produtos estão sem preço de venda válido."); return;
+
     }
-    if (!form.customerId) { setError("Selecione um cliente."); return; }
-    if (form.hasDeliveryDeadline && !form.deliveryDeadline) { setError("Informe o prazo de entrega."); return; }
-    if (!Number.isFinite(total) || total <= 0) { setError("O valor total deve ser maior que zero."); return; }
+    if (!form.customerId) { toast.error("Selecione um cliente."); return; }
+    if (form.hasDeliveryDeadline && !form.deliveryDeadline) { toast.error("Informe o prazo de entrega."); return; }
+    if (!Number.isFinite(total) || total <= 0) { toast.error("O valor total deve ser maior que zero."); return; }
     if (!Number.isFinite(paidPercentage) || paidPercentage < 0 || paidPercentage > 100) {
-      setError("O percentual já pago deve estar entre 0 e 100."); return;
+      toast.error("O percentual já pago deve estar entre 0 e 100."); return;
     }
     if (form.items.some((item) => {
       const unitPrice = getUnitPrice(products.find((product) => product.id === item.productId), item.quantity) ?? 0;
@@ -236,7 +241,8 @@ export default function NewSalePage() {
       const amount = rawAdjustment === "" ? 0 : Number(rawAdjustment);
       return !Number.isFinite(amount) || amount < 0 || unitPrice * item.quantity + getAdditionalAmount(item) < 0;
     })) {
-      setError("O produto precisa ser vendido com um valor positivo");
+
+      toast.error("O produto precisa ser vendido com um valor positivo");
       return;
     }
     setSaving(true);
@@ -263,13 +269,14 @@ export default function NewSalePage() {
           model: item.model.trim() || null,
         })),
       }, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      toast.success("Venda registrada com sucesso!");
       router.push("/vendas");
     } catch (exception) {
       if (axios.isAxiosError(exception)) {
         const message = exception.response?.data?.message;
-        setError(typeof message === "string" ? message : "Não foi possível cadastrar a venda.");
+        toast.error(typeof message === "string" ? message : "Não foi possível cadastrar a venda.");
       } else {
-        setError("Ocorreu um erro inesperado ao cadastrar a venda.");
+        toast.error("Ocorreu um erro inesperado ao cadastrar a venda.");
       }
     } finally {
       setSaving(false);
@@ -286,7 +293,6 @@ export default function NewSalePage() {
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Registrar"}
           </button>
         </div>
-        {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">{error}</div>}
         <Field label="Cliente" required>
             <SearchSelect
               items={customers}
@@ -363,7 +369,7 @@ export default function NewSalePage() {
               </p>
               {product && (
                 <p className="text-xs text-[#81766b]">
-                  {formatCurrency(unitPrice)} / un.
+                {formatCurrency(unitPrice)} / un.
                 </p>
               )}
             </div>
@@ -430,7 +436,8 @@ export default function NewSalePage() {
             }
           }}
           onPaste={(event) => {
-            if (/[+\\-eE]/.test(event.clipboardData.getData("text"))) {
+            if (/[+\-eE]/.test(event.clipboardData.getData("text"))) {
+
               event.preventDefault();
             }
           }}
@@ -441,7 +448,9 @@ export default function NewSalePage() {
     </div>
   </details>
 )}
-                     {item.productId && (
+
+              {item.productId && (
+
              <details className="mt-4 border-t border-[#ece6dc] pt-3">
                <summary className="cursor-pointer text-sm font-semibold text-[#927448] marker:text-[#927448]">
                  Add características

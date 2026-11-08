@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode, Suspense } from "r
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../../src/lib/api";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
@@ -181,7 +182,7 @@ useEffect(() => {
         setCustomers((Array.isArray(users) ? users : []).filter((user: { role?: string; roles?: string[] }) => user.role === "CANDIDATE" || user.roles?.includes("CANDIDATE")).map((user: { userId?: string; id?: string; name: string; email?: string; cpf?: string; rg?: string; phone?: string; telephone?: string }) => ({ id: user.userId ?? user.id ?? "", name: user.name, email: user.email, cpf: user.cpf, rg: user.rg, phone: user.phone ?? user.telephone })).filter((user: Customer) => user.id));
         setProducts((Array.isArray(productsData) ? productsData : []).map((product: { id: string; name: string; commercialCode?: string; code?: string; price?: number | string; salePrice?: number | string; sellingPrice?: number | string; prices?: { minimumQuantity: number; unitPrice: number | string }[] }) => ({ id: product.id, name: product.name, commercialCode: product.commercialCode ?? product.code, price: product.salePrice != null || product.sellingPrice != null || product.price != null ? numeric(product.salePrice ?? product.sellingPrice ?? product.price) : null, prices: (product.prices ?? []).map((tier) => ({ minimumQuantity: tier.minimumQuantity, unitPrice: numeric(tier.unitPrice) })) })));
       } catch (exception) {
-        if (!controller.signal.aborted && !axios.isCancel(exception)) setError("Não foi possível carregar a venda.");
+        if (!controller.signal.aborted && !axios.isCancel(exception)) { setError("Não foi possível carregar a venda."); toast.error("Não foi possível carregar a venda."); }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -213,9 +214,8 @@ useEffect(() => {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form || !original) return;
-    setError(null);
-    if (![paid, downPayment].every((value) => Number.isFinite(value) && value >= 0 && value <= 100)) { setError("Os percentuais devem estar entre 0 e 100."); return; }
-    if (editRegistration && form.hasDeliveryDeadline && !form.deliveryDeadline) { setError("Informe o prazo de entrega."); return; }
+    if (![paid, downPayment].every((value) => Number.isFinite(value) && value >= 0 && value <= 100)) { toast.error("Os percentuais devem estar entre 0 e 100."); return; }
+    if (editRegistration && form.hasDeliveryDeadline && !form.deliveryDeadline) { toast.error("Informe o prazo de entrega."); return; }
     const changes: Record<string, unknown> = {};
     if (paid !== numeric(original.paidPercentage)) changes.paidPercentage = paid;
     if (editRegistration && downPayment !== numeric(original.downPaymentPercentage)) changes.downPaymentPercentage = downPayment;
@@ -225,31 +225,32 @@ useEffect(() => {
     if (editRegistration && deadline !== dateOnly(original.deliveryDeadline || null) && !(deadline === null && !original.deliveryDeadline)) changes.deliveryDeadline = deadline;
 
     if (editRegistration) {
-      if (!form.customerId) { setError("Selecione um cliente."); return; }
+      if (!form.customerId) { toast.error("Selecione um cliente."); return; }
       if (form.customerId !== original.customerId) changes.customerId = form.customerId;
       if ((form.observation.trim() || null) !== (original.observation ?? null)) changes.observation = form.observation.trim() || null;
       if (itemsChanged) {
         if (!cartPricesValid) {
-          setError("Não é possível atualizar os produtos sem os preços unitários originais. Confira os dados retornados pela API.");
+          toast.error("Não é possível atualizar os produtos sem os preços unitários originais. Confira os dados retornados pela API.");
           return;
         }
         if (!form.items.length || form.items.some((item) => !item.productId || !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(numeric(item.unitPrice)) || numeric(item.unitPrice) <= 0 || !Number.isFinite(numeric(item.adjustmentAmount)) || numeric(item.adjustmentAmount) < 0 || itemTotal(item) <= 0)) {
-          setError("Informe produtos, quantidades e valores válidos. Cada item deve ter total positivo."); return;
+          toast.error("Informe produtos, quantidades e valores válidos. Cada item deve ter total positivo."); return;
         }
         const newItems = form.items.map((item) => ({ productId: item.productId, inventoryId: item.inventoryId, quantity: item.quantity, unitPrice: numeric(item.unitPrice), additionalAmount: additional(item), color: item.color.trim() || null, size: item.size.trim() || null, material: item.material.trim() || null, brand: item.brand.trim() || null, model: item.model.trim() || null }));
         const oldItems = (original.items ?? []).map((item) => ({ productId: item.productId, inventoryId: item.inventoryId ?? null, quantity: item.quantity, unitPrice: numeric(item.unitPrice), additionalAmount: numeric(item.additionalAmount), color: item.color ?? null, size: item.size ?? null, material: item.material ?? null, brand: item.brand ?? null, model: item.model ?? null }));
         if (JSON.stringify(newItems) !== JSON.stringify(oldItems)) changes.items = newItems;
       }
     }
-    if (!Object.keys(changes).length) { router.push("/vendas"); return; }
+    if (!Object.keys(changes).length) { toast.info("Nenhuma alteração realizada."); router.push("/vendas"); return; }
     setSaving(true);
     try {
       const token = localStorage.getItem("access_token");
       await api.patch(`/sales/${id}`, changes, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      toast.success("Venda atualizada com sucesso!");
       router.push("/vendas");
     } catch (exception) {
       const message = axios.isAxiosError(exception) ? exception.response?.data?.message : null;
-      setError(typeof message === "string" ? message : "Não foi possível atualizar a venda.");
+      toast.error(typeof message === "string" ? message : "Não foi possível atualizar a venda.");
     } finally { setSaving(false); }
   }
 
@@ -260,7 +261,6 @@ useEffect(() => {
       <div><Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-medium text-[#927448]"><ArrowLeft size={16} /> Voltar para vendas</Link><h1 className="mt-3 font-serif text-3xl text-[#342d27] sm:text-4xl">Atualizar venda</h1></div>
       <button type="submit" disabled={saving} className={BUTTON}>{saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Salvar alterações"}</button>
     </div>
-    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div>}
 
     <section className={SECTION}>
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -388,7 +388,7 @@ useEffect(() => {
                       } : previous);
                     }
                   } catch {
-                    setError("Não foi possível consultar o preço do produto selecionado.");
+                    toast.error("Não foi possível consultar o preço do produto selecionado.");
                   }
                 }
               }}

@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 import { api } from "../../../../src/lib/api";
@@ -251,6 +252,7 @@ function EditProductContent() {
       } catch (cause) {
         if (!controller.signal.aborted) {
           setError(errorMessage(cause));
+          toast.error(errorMessage(cause));
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -263,6 +265,7 @@ function EditProductContent() {
       void load();
     } else {
       setError("ID do produto não informado.");
+      toast.error("ID do produto não informado.");
       setLoading(false);
     }
 
@@ -686,12 +689,13 @@ function EditProductContent() {
         }
       );
 
+      toast.success("Produto atualizado com sucesso!");
       router.push(
         `/produtos/${encodeURIComponent(id)}`
       );
       router.refresh();
     } catch (cause) {
-      setError(errorMessage(cause));
+      toast.error(errorMessage(cause));
     } finally {
       setSaving(false);
     }
@@ -1289,14 +1293,6 @@ function EditProductContent() {
               ))}
             </section>
 
-            {error && (
-              <p
-                role="alert"
-                className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-              >
-                {error}
-              </p>
-            )}
 
             <div className="flex justify-end gap-3">
               <Link

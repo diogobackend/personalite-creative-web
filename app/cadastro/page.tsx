@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import axios from "axios";
+import { toast } from "react-toastify";
 import {
   ArrowRight,
   CalendarDays,
@@ -173,8 +174,6 @@ function getRegisterError(error: unknown): string {
 
 export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [today, setToday] = useState("");
 
@@ -187,7 +186,6 @@ export default function Home() {
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -205,8 +203,6 @@ export default function Home() {
   });
 
   const onSubmit = async (values: RegisterForm) => {
-    setSubmitted(false);
-    setSubmitError(null);
     setIsRegistering(true);
 
     const optional = (value: string): string | null =>
@@ -226,9 +222,10 @@ export default function Home() {
 
     try {
       await userService.register(request);
+      toast.success("Usuário cadastrado com sucesso!");
       router.replace("/login");
     } catch (error) {
-      setSubmitError(getRegisterError(error));
+      toast.error(getRegisterError(error));
     } finally {
       setIsRegistering(false);
     }
@@ -507,28 +504,6 @@ export default function Home() {
                   </div>
                 </Field>
               </div>
-
-              {/* Mensagem de sucesso */}
-              {submitted && (
-                <div
-                  role="status"
-                  className="flex items-start gap-3 rounded-xl border border-[#d8e8d7] bg-[#f1f8ef] p-4 text-sm text-[#3c7140]"
-                >
-                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
-
-                  <p>Usuário cadastrado com sucesso!</p>
-                </div>
-              )}
-
-              {/* Mensagem de erro */}
-              {submitError && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-                >
-                  {submitError}
-                </div>
-              )}
 
               {/* Botão de cadastro */}
               <div className="space-y-4 pt-2">

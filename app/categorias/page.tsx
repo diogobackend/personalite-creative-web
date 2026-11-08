@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { Boxes, Eye, Loader2, Package, Pencil, Plus, ReceiptText, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import { api } from "../../src/lib/api";
@@ -45,8 +46,6 @@ export default function CategoriasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<CategoryType>("PRODUCT");
   const [search, setSearch] = useState("");
@@ -103,18 +102,16 @@ export default function CategoriasPage() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = name.trim();
-    setActionError(null);
-    setNotice(null);
-    if (!normalized) { setActionError("Informe o nome da categoria."); return; }
-    if (normalized.length > 150) { setActionError("O nome deve ter no máximo 150 caracteres."); return; }
+    if (!normalized) { toast.error("Informe o nome da categoria."); return; }
+    if (normalized.length > 150) { toast.error("O nome deve ter no máximo 150 caracteres."); return; }
     setSaving(true);
     try {
       const { data } = await api.post<Category>("/categories", { name: normalized, type }, { headers: authHeaders() });
       setCategories((previous) => [...previous.filter((item) => item.id !== data.id), data]);
       setName("");
-      setNotice("Categoria cadastrada com sucesso.");
+      toast.success("Categoria cadastrada com sucesso.");
     } catch (error) {
-      setActionError(errorMessage(error, "cadastrar categoria"));
+      toast.error(errorMessage(error, "cadastrar categoria"));
     } finally {
       setSaving(false);
     }
@@ -123,24 +120,20 @@ export default function CategoriasPage() {
   function startEditing(category: Category) {
     setEditingId(category.id);
     setEditName(category.name);
-    setActionError(null);
-    setNotice(null);
   }
 
   async function handleUpdate(category: Category) {
     const normalized = editName.trim();
-    setActionError(null);
-    setNotice(null);
-    if (!normalized || normalized.length > 150) { setActionError("Informe um nome com até 150 caracteres."); return; }
-    if (normalized === category.name) { setEditingId(null); return; }
+    if (!normalized || normalized.length > 150) { toast.error("Informe um nome com até 150 caracteres."); return; }
+    if (normalized === category.name) { setEditingId(null); toast.info("Nenhuma alteração realizada."); return; }
     setBusyId(category.id);
     try {
       const { data } = await api.patch<Category>(`/categories/${encodeURIComponent(category.id)}`, { name: normalized }, { headers: authHeaders() });
       setCategories((previous) => previous.map((item) => item.id === category.id ? data : item));
       setEditingId(null);
-      setNotice("Categoria atualizada com sucesso.");
+      toast.success("Categoria atualizada com sucesso.");
     } catch (error) {
-      setActionError(errorMessage(error, "atualizar categoria"));
+      toast.error(errorMessage(error, "atualizar categoria"));
     } finally {
       setBusyId(null);
     }
@@ -150,17 +143,15 @@ export default function CategoriasPage() {
     if (!deleteTarget) return;
     const target = deleteTarget;
     setBusyId(target.id);
-    setActionError(null);
-    setNotice(null);
     try {
       await api.delete(`/categories/${encodeURIComponent(target.id)}`, { headers: authHeaders() });
       setCategories((previous) => previous.filter((item) => item.id !== target.id));
       if (editingId === target.id) setEditingId(null);
       setDeleteTarget(null);
-      setNotice("Categoria excluída com sucesso.");
+      toast.success("Categoria excluída com sucesso.");
     } catch (error) {
       setDeleteTarget(null);
-      setActionError(errorMessage(error, "excluir categoria"));
+      toast.error(errorMessage(error, "excluir categoria"));
     } finally {
       setBusyId(null);
     }
@@ -194,8 +185,6 @@ export default function CategoriasPage() {
           </form>
         </section>
 
-        {notice && <div role="status" className="rounded-xl border border-[#d8e5d5] bg-[#f4faf2] px-5 py-3 text-sm font-medium text-[#42623e]">{notice}</div>}
-        {actionError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">{actionError}</div>}
 
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
           <div className="relative">

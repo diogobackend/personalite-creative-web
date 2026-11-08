@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout"
 import { getColor } from "../../../src/utils/colors";
@@ -109,7 +110,6 @@ export default function NovoProdutoPage() {
   const [characteristics, setCharacteristics] = useState<Characteristics>({ colors: [], sizes: [], brands: [], models: [], materials: [] });
   const [characteristicInputs, setCharacteristicInputs] = useState<Record<CharacteristicKey, string>>({ colors: "", sizes: "", brands: "", models: "", materials: "" });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -121,7 +121,7 @@ export default function NovoProdutoPage() {
         });
         if (active) setCategories(response.data.filter((category) => category.type === "PRODUCT"));
       } catch (err) {
-        if (active) setError(getErrorMessage(err));
+        if (active) toast.error(getErrorMessage(err));
       }
     };
     void loadCategories();
@@ -153,28 +153,27 @@ export default function NovoProdutoPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
 
-    if (!/^\d{4}$/.test(form.code)) return setError("O código deve conter exatamente 4 números.");
-    if (!form.name.trim()) return setError("Informe o nome do produto.");
+    if (!/^\d{4}$/.test(form.code)) return toast.error("O código deve conter exatamente 4 números.");
+    if (!form.name.trim()) return toast.error("Informe o nome do produto.");
     const selectedCategory = categories.find((category) => category.id === form.categoryId);
-    if (!selectedCategory) return setError("Selecione uma categoria válida.");
-    if (form.minimumQuantity && !validPositiveInteger(form.minimumQuantity)) return setError("A quantidade mínima deve ser um número inteiro maior que zero.");
-    if (form.shelfLifeDays && !validPositiveInteger(form.shelfLifeDays)) return setError("A validade deve ser um número inteiro maior que zero.");
-    if (form.productionLeadTimeMinDays && !validNonNegativeInteger(form.productionLeadTimeMinDays)) return setError("O prazo mínimo de produção deve ser um número inteiro não negativo.");
-    if (form.productionLeadTimeMaxDays && !validNonNegativeInteger(form.productionLeadTimeMaxDays)) return setError("O prazo máximo de produção deve ser um número inteiro não negativo.");
-    if (form.productionLeadTimeMinDays && form.productionLeadTimeMaxDays && Number(form.productionLeadTimeMinDays) > Number(form.productionLeadTimeMaxDays)) return setError("O prazo mínimo de produção não pode exceder o máximo.");
+    if (!selectedCategory) return toast.error("Selecione uma categoria válida.");
+    if (form.minimumQuantity && !validPositiveInteger(form.minimumQuantity)) return toast.error("A quantidade mínima deve ser um número inteiro maior que zero.");
+    if (form.shelfLifeDays && !validPositiveInteger(form.shelfLifeDays)) return toast.error("A validade deve ser um número inteiro maior que zero.");
+    if (form.productionLeadTimeMinDays && !validNonNegativeInteger(form.productionLeadTimeMinDays)) return toast.error("O prazo mínimo de produção deve ser um número inteiro não negativo.");
+    if (form.productionLeadTimeMaxDays && !validNonNegativeInteger(form.productionLeadTimeMaxDays)) return toast.error("O prazo máximo de produção deve ser um número inteiro não negativo.");
+    if (form.productionLeadTimeMinDays && form.productionLeadTimeMaxDays && Number(form.productionLeadTimeMinDays) > Number(form.productionLeadTimeMaxDays)) return toast.error("O prazo mínimo de produção não pode exceder o máximo.");
 
     if (form.pricingType !== "QUOTE") {
-      if (prices.length === 0) return setError("Adicione ao menos uma faixa de preço.");
-      if (prices.some((price) => !validPositiveInteger(price.minimumQuantity) || !Number.isFinite(Number(price.unitPrice)) || Number(price.unitPrice) <= 0 || !price.unitPrice.trim())) return setError("Preencha as faixas de preço com quantidade inteira positiva e valor maior que zero.");
+      if (prices.length === 0) return toast.error("Adicione ao menos uma faixa de preço.");
+      if (prices.some((price) => !validPositiveInteger(price.minimumQuantity) || !Number.isFinite(Number(price.unitPrice)) || Number(price.unitPrice) <= 0 || !price.unitPrice.trim())) return toast.error("Preencha as faixas de preço com quantidade inteira positiva e valor maior que zero.");
       const quantities = prices.map((price) => Number(price.minimumQuantity));
-      if (new Set(quantities).size !== quantities.length) return setError("Não repita a mesma quantidade mínima nas faixas de preço.");
+      if (new Set(quantities).size !== quantities.length) return toast.error("Não repita a mesma quantidade mínima nas faixas de preço.");
     }
-    if (fees.some((fee) => !fee.name.trim() || !fee.amount.trim() || !Number.isFinite(Number(fee.amount)) || Number(fee.amount) < 0)) return setError("Preencha o nome e um valor não negativo em todas as taxas.");
+    if (fees.some((fee) => !fee.name.trim() || !fee.amount.trim() || !Number.isFinite(Number(fee.amount)) || Number(fee.amount) < 0)) return toast.error("Preencha o nome e um valor não negativo em todas as taxas.");
 
     const token = localStorage.getItem("access_token");
-    if (!token || token === "undefined" || token === "null") return setError("Sessão inválida. Faça login novamente.");
+    if (!token || token === "undefined" || token === "null") return toast.error("Sessão inválida. Faça login novamente.");
 
     const payload = {
       code: form.code,
@@ -196,10 +195,11 @@ export default function NovoProdutoPage() {
     setSaving(true);
     try {
       await api.post("/products", payload, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success("Produto cadastrado com sucesso!");
       router.push("/produtos");
       router.refresh();
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -345,7 +345,6 @@ export default function NovoProdutoPage() {
             )}
           </section>
 
-          {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div>}
           <div className="flex flex-wrap justify-end gap-3">
             <button type="button" disabled={saving} onClick={() => router.push("/produtos")} className="rounded-xl border border-[#e2d7c9] bg-white px-6 py-3 text-sm text-[#65584b] hover:bg-[#faf7f2] disabled:opacity-60">Cancelar</button>
             <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60"><Save size={17} /> {saving ? "Salvando..." : "Cadastrar produto"}</button>

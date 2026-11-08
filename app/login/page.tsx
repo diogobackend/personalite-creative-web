@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import axios from "axios";
+import { toast } from "react-toastify";
 import {
   ArrowRight,
   Check,
@@ -37,7 +38,7 @@ function getLoginError(error: unknown): string {
   switch (error.response.status) {
     case 400:
     case 401:
-      return "Login ou senha inválidos.";
+      return "Credenciais inválidas";
 
     case 403:
       return "Acesso não autorizado.";
@@ -52,8 +53,6 @@ function getLoginError(error: unknown): string {
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -70,22 +69,20 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (values: LoginForm) => {
-    setLoginSuccess(false);
-    setLoginError(null);
+    try {
+      const identifier = values.login.trim();
 
-    try { 
-  const identifier = values.login.trim();
+      await authService.login({
+        ...(identifier.includes("@")
+          ? { email: identifier }
+          : { login: identifier }),
+        password: values.password,
+      });
 
-  await authService.login({
-    ...(identifier.includes("@")
-      ? { email: identifier }
-      : { login: identifier }),
-    password: values.password,
-  });
-
-  router.replace("/");
-} catch (error) {
-      setLoginError(getLoginError(error));
+      toast.info("Seja bem vindo!");
+      router.replace("/");
+    } catch (error) {
+      toast.error(getLoginError(error));
     }
   };
 
@@ -251,27 +248,6 @@ export default function LoginPage() {
                   </p>
                 )}
               </div>
-
-              {/* Mensagem de sucesso */}
-              {loginSuccess && (
-                <div
-                  role="status"
-                  className="flex items-start gap-3 rounded-xl border border-[#d8e8d7] bg-[#f1f8ef] p-4 text-sm text-[#3c7140]"
-                >
-                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>Credenciais validadas com sucesso!</p>
-                </div>
-              )}
-
-              {/* Mensagem de erro */}
-              {loginError && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-                >
-                  {loginError}
-                </div>
-              )}
 
               {/* Botão */}
               <button
