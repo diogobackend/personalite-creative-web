@@ -442,7 +442,7 @@ export default function NovoEstoquePage() {
       return;
     }
 
-    if (!selectedCategory) {
+    if (productChoice === "NO" && !selectedCategory) {
       setError("Selecione uma categoria válida do estoque.");
       return;
     }
@@ -471,29 +471,57 @@ export default function NovoEstoquePage() {
       return;
     }
 
-    const payload = {
-      name: form.name.trim(),
-      category: form.category.trim(),
-      categoryId: selectedCategory.id,
-      description: optionalText(form.description),
-      productId:
-        productChoice === "YES" ? selectedProduct!.id : null,
-      quantity: Number(form.quantity),
-      minimumQuantity: form.minimumQuantity.trim()
-        ? Number(form.minimumQuantity)
-        : null,
-      unit: optionalText(form.unit),
-      color: optionalText(form.color),
-      size: optionalText(form.size),
-      material: optionalText(form.material),
-      brand: optionalText(form.brand),
-      model: optionalText(form.model),
-      sku: optionalText(form.sku),
-    };
-
     setSaving(true);
 
     try {
+      let inventoryCategory = selectedCategory;
+
+      if (productChoice === "YES" && selectedProduct) {
+        const categoryName = selectedProduct.category.trim();
+        if (!categoryName) throw new Error("O produto selecionado não possui categoria.");
+
+        if (!inventoryCategory) {
+          const { data } = await api.get<InventoryCategory[] | { content: InventoryCategory[] }>("/categories", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const existing = Array.isArray(data) ? data : data.content;
+          inventoryCategory = existing.find((category) =>
+            category.type === "INVENTORY" && category.name === categoryName
+          );
+        }
+
+        if (!inventoryCategory) {
+          const { data } = await api.post<InventoryCategory>(
+            "/categories",
+            { name: categoryName, type: "INVENTORY" },
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          inventoryCategory = data;
+          setCategories((previous) => [...previous, data]);
+        }
+      }
+
+      if (!inventoryCategory) throw new Error("Selecione uma categoria válida do estoque.");
+
+      const payload = {
+        name: form.name.trim(),
+        category: inventoryCategory.name,
+        categoryId: inventoryCategory.id,
+        description: optionalText(form.description),
+        productId: productChoice === "YES" ? selectedProduct!.id : null,
+        quantity: Number(form.quantity),
+        minimumQuantity: form.minimumQuantity.trim()
+          ? Number(form.minimumQuantity)
+          : null,
+        unit: optionalText(form.unit),
+        color: optionalText(form.color),
+        size: optionalText(form.size),
+        material: optionalText(form.material),
+        brand: optionalText(form.brand),
+        model: optionalText(form.model),
+        sku: productChoice === "YES" ? selectedProduct!.code : optionalText(form.sku),
+      };
+
       await api.post("/inventory", payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -564,7 +592,7 @@ export default function NovoEstoquePage() {
 
           <section className={SECTION_CLASS}>
             <h2 className="text-lg font-semibold text-[#342d27]">
-              É um produto já cadastrado?
+              É um produto registrado?
             </h2>
 
             <div className="mt-5 flex flex-wrap gap-4">
@@ -772,8 +800,9 @@ export default function NovoEstoquePage() {
                   maxLength={255}
                   value={form.sku}
                   onChange={(event) => updateForm("sku", event.target.value)}
+                  readOnly={productChoice === "YES"}
                   placeholder="Ex.: CAM-BRA-M"
-                  className={INPUT_CLASS}
+                  className={`${INPUT_CLASS} ${productChoice === "YES" ? "cursor-not-allowed bg-[#f8f5f0] text-[#81766b]" : ""}`}
                 />
               </Field>
 

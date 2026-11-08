@@ -36,6 +36,10 @@ type Expense = {
   quantity: number | null;
   status: string;
   expenseDate: string;
+  category?: string;
+  description?: string | null;
+  allocationType?: string;
+  createdAt?: string;
 };
 
 type ExpensePage = {
@@ -107,8 +111,9 @@ function ExpenseHistory({ inventoryId }: { inventoryId: string }) {
   const [dateTo, setDateTo] = useState("");
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
-  const [minQuantity, setMinQuantity] = useState("");
-  const [maxQuantity, setMaxQuantity] = useState("");
+  const [expenseAdvanced, setExpenseAdvanced] = useState<Record<string, string>>({});
+  const setExpenseAdvancedField = (field: string, value: string) =>
+    setExpenseAdvanced((previous) => ({ ...previous, [field]: value }));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -160,16 +165,29 @@ function ExpenseHistory({ inventoryId }: { inventoryId: string }) {
   }, [inventoryId]);
 
   const filteredExpenses = useMemo(() => expenses.filter((expense) => {
-  if (!expense.name.toLocaleLowerCase("pt-BR").includes(nameFilter.toLocaleLowerCase("pt-BR"))) return false;
-  if (dateFrom && expense.expenseDate < dateFrom) return false;
-  if (dateTo && expense.expenseDate > dateTo) return false;
-  if (minValue !== "" && expense.value < Number(minValue.replace(",", "."))) return false;
-  if (maxValue !== "" && expense.value > Number(maxValue.replace(",", "."))) return false;
-  if (minQuantity !== "" && (expense.quantity ?? 0) < Number(minQuantity)) return false;
-  if (maxQuantity !== "" && (expense.quantity ?? 0) > Number(maxQuantity)) return false;
-
-  return true;
-}), [expenses, nameFilter, dateFrom, dateTo, minValue, maxValue, minQuantity, maxQuantity]);
+    const contains = (value: string | null | undefined, query: string) =>
+      (value ?? "").toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
+    if (nameFilter.trim() && !contains(expense.name, nameFilter)) return false;
+    const date = expense.expenseDate.slice(0, 10);
+    if (dateFrom && date < dateFrom) return false;
+    if (dateTo && date > dateTo) return false;
+    if (minValue !== "" && expense.value < Number(minValue)) return false;
+    if (maxValue !== "" && expense.value > Number(maxValue)) return false;
+    const advanced = expenseAdvanced;
+    if (advanced.description?.trim() && !contains(expense.description, advanced.description)) return false;
+    if (advanced.category && expense.category !== advanced.category) return false;
+    if (advanced.status && expense.status !== advanced.status) return false;
+    if (advanced.allocationType && expense.allocationType !== advanced.allocationType) return false;
+    if (advanced.exactValue !== "" && advanced.exactValue !== undefined && expense.value !== Number(advanced.exactValue)) return false;
+    if (advanced.quantity !== "" && advanced.quantity !== undefined && expense.quantity !== Number(advanced.quantity)) return false;
+    if (advanced.minQuantity !== "" && advanced.minQuantity !== undefined && (expense.quantity == null || expense.quantity < Number(advanced.minQuantity))) return false;
+    if (advanced.maxQuantity !== "" && advanced.maxQuantity !== undefined && (expense.quantity == null || expense.quantity > Number(advanced.maxQuantity))) return false;
+    if (advanced.exactDate && date !== advanced.exactDate) return false;
+    const created = expense.createdAt?.slice(0, 10) ?? "";
+    if (advanced.createdFrom && (!created || created < advanced.createdFrom)) return false;
+    if (advanced.createdTo && (!created || created > advanced.createdTo)) return false;
+    return true;
+  }), [expenses, nameFilter, dateFrom, dateTo, minValue, maxValue, expenseAdvanced]);
 
   const total = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
   const statusLabels: Record<string, string> = { PAID: "Pago", PENDING: "Pendente", CANCELLED: "Cancelado" };
@@ -195,155 +213,64 @@ function ExpenseHistory({ inventoryId }: { inventoryId: string }) {
   </div>
 
   <div className="mt-5">
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-      <div>
-        <label htmlFor="expense-name" className="mb-2 block text-xs font-semibold text-[#51473d]">
-          Nome
-        </label>
-        <input
-          id="expense-name"
-          type="search"
-          placeholder="Buscar pelo nome da despesa"
-          value={nameFilter}
-          onChange={(event) => setNameFilter(event.target.value)}
-          className={INPUT_CLASS}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="expense-from" className="mb-2 block text-xs font-semibold text-[#51473d]">
-          Data da compra — de
-        </label>
-        <input
-          id="expense-from"
-          type="date"
-          value={dateFrom}
-          onChange={(event) => setDateFrom(event.target.value)}
-          className={INPUT_CLASS}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="expense-to" className="mb-2 block text-xs font-semibold text-[#51473d]">
-          Data da compra — até
-        </label>
-        <input
-          id="expense-to"
-          type="date"
-          value={dateTo}
-          onChange={(event) => setDateTo(event.target.value)}
-          className={INPUT_CLASS}
-        />
-      </div>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <label className="block text-xs font-semibold text-[#51473d] sm:col-span-2 lg:col-span-4">
+        Nome
+        <input type="search" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Buscar pelo nome da despesa" className={`mt-2 ${INPUT_CLASS}`} />
+      </label>
+      <label className="block text-xs font-semibold text-[#51473d]">
+        Data da despesa — de
+        <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className={`mt-2 ${INPUT_CLASS}`} />
+      </label>
+      <label className="block text-xs font-semibold text-[#51473d]">
+        Data da despesa — até
+        <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className={`mt-2 ${INPUT_CLASS}`} />
+      </label>
+      <label className="block text-xs font-semibold text-[#51473d]">
+        Valor mínimo (R$)
+        <input type="number" min="0" step="0.01" value={minValue} onChange={(event) => setMinValue(event.target.value)} placeholder="0,00" className={`mt-2 ${INPUT_CLASS}`} />
+      </label>
+      <label className="block text-xs font-semibold text-[#51473d]">
+        Valor máximo (R$)
+        <input type="number" min="0" step="0.01" value={maxValue} onChange={(event) => setMaxValue(event.target.value)} placeholder="0,00" className={`mt-2 ${INPUT_CLASS}`} />
+      </label>
     </div>
-
     <details className="group mt-4">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] transition hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 7h16M7 12h10M10 17h4" />
-        </svg>
-
-        Filtros avançados
-
-        {(minValue !== "" ||
-          maxValue !== "" ||
-          minQuantity !== "" ||
-          maxQuantity !== "") && (
-          <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs text-[#725934]">
-            Ativos
-          </span>
-        )}
-
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="transition-transform duration-200 group-open:rotate-180"
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-[#927448] hover:bg-[#f0e5d4] [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true">☰</span> Filtros avançados
+        {Object.values(expenseAdvanced).some((value) => value.trim()) && <span className="rounded-full bg-[#e8d7bb] px-2 py-0.5 text-xs">Ativos</span>}
+        <span className="transition-transform group-open:rotate-180">⌄</span>
       </summary>
-
       <div className="mt-3 grid gap-4 rounded-xl border border-[#e8d7bb] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label htmlFor="expense-min" className="mb-2 block text-xs font-semibold text-[#51473d]">
-            Valor mínimo (R$)
+        <label className="block text-xs font-semibold text-[#51473d]">Categoria
+          <select value={expenseAdvanced.category ?? ""} onChange={(event) => setExpenseAdvancedField("category", event.target.value)} className={`mt-2 ${INPUT_CLASS}`}>
+            <option value="">Todas as categorias</option>
+            {[...new Set(expenses.map((expense) => expense.category).filter((category): category is string => Boolean(category)))].sort((a, b) => a.localeCompare(b, "pt-BR")).map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-semibold text-[#51473d]">Descrição
+          <input type="search" value={expenseAdvanced.description ?? ""} onChange={(event) => setExpenseAdvancedField("description", event.target.value)} placeholder="Buscar pela descrição" className={`mt-2 ${INPUT_CLASS}`} />
+        </label>
+        <label className="block text-xs font-semibold text-[#51473d]">Status
+          <select value={expenseAdvanced.status ?? ""} onChange={(event) => setExpenseAdvancedField("status", event.target.value)} className={`mt-2 ${INPUT_CLASS}`}>
+            <option value="">Todos os status</option><option value="PENDING">Pendente</option><option value="PAID">Pago</option><option value="CANCELLED">Cancelado</option>
+          </select>
+        </label>
+        <label className="block text-xs font-semibold text-[#51473d]">Tipo de alocação
+          <select value={expenseAdvanced.allocationType ?? ""} onChange={(event) => setExpenseAdvancedField("allocationType", event.target.value)} className={`mt-2 ${INPUT_CLASS}`}>
+            <option value="">Todas as alocações</option><option value="GENERAL">Geral</option><option value="SPECIFIC_PRODUCT">Produto específico</option><option value="CATEGORY_PRODUCTS">Diversos produtos por categoria</option>
+          </select>
+        </label>
+        {([["exactValue", "Valor exato (R$)", "0.01"], ["quantity", "Quantidade exata", "1"], ["minQuantity", "Quantidade mínima", "1"], ["maxQuantity", "Quantidade máxima", "1"]] as const).map(([field, label, step]) => (
+          <label key={field} className="block text-xs font-semibold text-[#51473d]">{label}
+            <input type="number" min="0" step={step} value={expenseAdvanced[field] ?? ""} onChange={(event) => setExpenseAdvancedField(field, event.target.value)} placeholder="0" className={`mt-2 ${INPUT_CLASS}`} />
           </label>
-          <input
-            id="expense-min"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0,00"
-            value={minValue}
-            onChange={(event) => setMinValue(event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="expense-max" className="mb-2 block text-xs font-semibold text-[#51473d]">
-            Valor máximo (R$)
+        ))}
+        {([["exactDate", "Data exata da despesa"], ["createdFrom", "Cadastro a partir de"], ["createdTo", "Cadastro até"]] as const).map(([field, label]) => (
+          <label key={field} className="block text-xs font-semibold text-[#51473d]">{label}
+            <input type="date" value={expenseAdvanced[field] ?? ""} onChange={(event) => setExpenseAdvancedField(field, event.target.value)} className={`mt-2 ${INPUT_CLASS}`} />
           </label>
-          <input
-            id="expense-max"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0,00"
-            value={maxValue}
-            onChange={(event) => setMaxValue(event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="expense-min-quantity" className="mb-2 block text-xs font-semibold text-[#51473d]">
-            Qtd mínima comprada
-          </label>
-          <input
-            id="expense-min-quantity"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="0"
-            value={minQuantity}
-            onChange={(event) => setMinQuantity(event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="expense-max-quantity" className="mb-2 block text-xs font-semibold text-[#51473d]">
-            Qtd máxima comprada
-          </label>
-          <input
-            id="expense-max-quantity"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="0"
-            value={maxQuantity}
-            onChange={(event) => setMaxQuantity(event.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
+        ))}
       </div>
     </details>
   </div>
