@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import {
   ArrowLeft,
   CalendarDays,
@@ -318,7 +319,6 @@ export default function NewExpensePage() {
   const [loadingInventory, setLoadingInventory] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const updateForm = <K extends keyof ExpenseForm>(
     field: K,
@@ -349,7 +349,7 @@ export default function NewExpensePage() {
         );
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
-        setError("Não foi possível carregar as categorias de despesas.");
+        toast.error("Não foi possível carregar as categorias de despesas.");
       }
     }
 
@@ -395,7 +395,7 @@ export default function NewExpensePage() {
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
 
-        setError("Não foi possível carregar os produtos.");
+        toast.error("Não foi possível carregar os produtos.");
       } finally {
         if (!controller.signal.aborted) {
           setLoadingProducts(false);
@@ -431,7 +431,7 @@ export default function NewExpensePage() {
         setInventoryItems(Array.isArray(items) ? items : []);
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
-        setError("Não foi possível carregar os itens do estoque.");
+        toast.error("Não foi possível carregar os itens do estoque.");
       } finally {
         if (!controller.signal.aborted) setLoadingInventory(false);
       }
@@ -520,20 +520,19 @@ export default function NewExpensePage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
     if (!form.categoryId || !expenseCategories.some((category) => category.id === form.categoryId)) {
-      setError("Selecione uma categoria de despesa válida.");
+      toast.error("Selecione uma categoria de despesa válida.");
       return;
     }
 
     if (!form.name.trim()) {
-      setError("Despesa");
+      toast.error("Despesa");
       return;
     }
 
     if (!Number.isFinite(expenseValue) || expenseValue <= 0) {
-      setError("Informe um valor maior que zero.");
+      toast.error("Informe um valor maior que zero.");
       return;
     }
 
@@ -542,12 +541,12 @@ export default function NewExpensePage() {
       : form.expenseDate;
 
     if (!expenseDate) {
-      setError("Informe a data da despesa.");
+      toast.error("Informe a data da despesa.");
       return;
     }
 
     if (form.category === STOCK_CATEGORY_NAME && !form.inventoryId) {
-      setError("Selecione um item do estoque.");
+      toast.error("Selecione um item do estoque.");
       return;
     }
 
@@ -556,7 +555,7 @@ export default function NewExpensePage() {
       (!Number.isInteger(Number(form.quantity)) ||
         Number(form.quantity) <= 0)
     ) {
-      setError("Informe uma quantidade válida para o estoque.");
+      toast.error("Informe uma quantidade válida para o estoque.");
       return;
     }
 
@@ -564,7 +563,7 @@ export default function NewExpensePage() {
       form.allocationType === "SPECIFIC_PRODUCT" &&
       form.products.length !== 1
     ) {
-      setError("Selecione exatamente um produto.");
+      toast.error("Selecione exatamente um produto.");
       return;
     }
 
@@ -572,7 +571,7 @@ export default function NewExpensePage() {
       form.allocationType === "CATEGORY_PRODUCTS" &&
       form.products.length < 2
     ) {
-      setError("Selecione pelo menos dois produtos.");
+      toast.error("Selecione pelo menos dois produtos.");
       return;
     }
 
@@ -585,7 +584,7 @@ export default function NewExpensePage() {
             parseMoney(product.allocatedValue) <= 0,
         )
       ) {
-        setError("Preencha os produtos e seus valores de alocação.");
+        toast.error("Preencha os produtos e seus valores de alocação.");
         return;
       }
 
@@ -594,14 +593,14 @@ export default function NewExpensePage() {
       );
 
       if (new Set(ids).size !== ids.length) {
-        setError(
+        toast.error(
           "Não é permitido selecionar o mesmo produto duas vezes.",
         );
         return;
       }
 
       if (Math.abs(allocatedTotal - expenseValue) > 0.001) {
-        setError(
+        toast.error(
           "A soma dos valores alocados deve ser igual ao valor da despesa.",
         );
         return;
@@ -609,7 +608,7 @@ export default function NewExpensePage() {
 
       if (form.allocationType === "CATEGORY_PRODUCTS") {
         if (!selectedProductCategory) {
-          setError("Selecione a categoria dos produtos.");
+          toast.error("Selecione a categoria dos produtos.");
           return;
         }
         const selectedProducts = form.products.map((allocation) =>
@@ -619,7 +618,7 @@ export default function NewExpensePage() {
         );
 
         if (selectedProducts.some((product) => !product || product.category !== selectedProductCategory)) {
-          setError("Selecione somente produtos da categoria escolhida.");
+          toast.error("Selecione somente produtos da categoria escolhida.");
           return;
         }
 
@@ -631,7 +630,7 @@ export default function NewExpensePage() {
           categories.every((category) => category !== undefined) &&
           new Set(categories).size > 1
         ) {
-          setError(
+          toast.error(
             "Os produtos selecionados devem pertencer à mesma categoria.",
           );
           return;
@@ -673,18 +672,19 @@ export default function NewExpensePage() {
           : undefined,
       });
 
+      toast.success("Despesa cadastrada com sucesso!");
       router.push("/despesas");
     } catch (exception) {
       if (axios.isAxiosError(exception)) {
         const message = exception.response?.data?.message;
 
-        setError(
+        toast.error(
           typeof message === "string"
             ? message
             : "Não foi possível cadastrar a despesa.",
         );
       } else {
-        setError(
+        toast.error(
           "Ocorreu um erro inesperado ao cadastrar a despesa.",
         );
       }
@@ -732,15 +732,6 @@ export default function NewExpensePage() {
             {saving ? "Salvando..." : "Registrar"}
           </button>
         </div>
-
-        {error && (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700"
-          >
-            {error}
-          </div>
-        )}
 
         <section className={SECTION_CLASS}>
           <div className="mt-6 grid gap-5 sm:grid-cols-2">

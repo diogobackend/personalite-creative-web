@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { ArrowLeft, Boxes, Check, Loader2, Package, Save, SlidersHorizontal } from "lucide-react";
 
 import { api } from "../../../../src/lib/api";
@@ -174,7 +175,6 @@ function EditarEstoqueContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -231,7 +231,9 @@ function EditarEstoqueContent() {
       } catch (cause) {
         if (controller.signal.aborted || axios.isCancel(cause)) return;
 
-        setError(getErrorMessage(cause));
+        const message = getErrorMessage(cause);
+        setError(message);
+        toast.error(message);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -256,7 +258,7 @@ function EditarEstoqueContent() {
         });
         if (!controller.signal.aborted) setProducts(Array.isArray(data?.content) ? data.content : []);
       } catch (cause) {
-        if (!controller.signal.aborted && !axios.isCancel(cause)) setError(getErrorMessage(cause));
+        if (!controller.signal.aborted && !axios.isCancel(cause)) toast.error(getErrorMessage(cause));
       }
     }
     void loadProducts();
@@ -278,7 +280,6 @@ function EditarEstoqueContent() {
     );
 
     setError(null);
-    setSuccess(null);
   }
 
   const changedFields =
@@ -300,17 +301,17 @@ function EditarEstoqueContent() {
     }
 
     if (!form.name.trim()) {
-      setError("O nome não pode ficar vazio.");
+      toast.error("O nome não pode ficar vazio.");
       return;
     }
 
     if (!form.category) {
-      setError("A categoria é obrigatória.");
+      toast.error("A categoria é obrigatória.");
       return;
     }
 
     if (form.quantity === "" || Number(form.quantity) < 0) {
-      setError("Informe uma quantidade válida.");
+      toast.error("Informe uma quantidade válida.");
       return;
     }
 
@@ -318,7 +319,7 @@ function EditarEstoqueContent() {
       form.minimumQuantity !== "" &&
       Number(form.minimumQuantity) < 0
     ) {
-      setError("A quantidade mínima não pode ser negativa.");
+      toast.error("A quantidade mínima não pode ser negativa.");
       return;
     }
 
@@ -353,7 +354,7 @@ function EditarEstoqueContent() {
     if (productIdChanged) payload.productId = productId;
 
     if (Object.keys(payload).length === 0) {
-      setError(
+      toast.error(
         "Nenhuma alteração válida para enviar. Campos vazios não alteram os demais dados."
       );
       return;
@@ -361,7 +362,6 @@ function EditarEstoqueContent() {
 
     setSaving(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const token = getToken();
@@ -372,10 +372,11 @@ function EditarEstoqueContent() {
         },
       });
 
+      toast.success("Item do estoque atualizado com sucesso!");
       router.push(`/estoque/${id}`);
       router.refresh();
     } catch (cause) {
-      setError(getErrorMessage(cause));
+      toast.error(getErrorMessage(cause));
     } finally {
       setSaving(false);
     }
@@ -439,7 +440,7 @@ function EditarEstoqueContent() {
                       try {
                         const { data } = await api.get<ProductCharacteristics>(`/products/${encodeURIComponent(product.id)}`, { headers: { Authorization: `Bearer ${getToken()}` } });
                         setProductCharacteristics(data);
-                      } catch (cause) { setError(getErrorMessage(cause)); }
+                      } catch (cause) { toast.error(getErrorMessage(cause)); }
                     }} className="flex w-full justify-between px-4 py-3 text-left text-sm hover:bg-[#f4ede2]">
                       <span>{product.name}</span><span className="text-[#81766b]">{product.code}</span>
                     </button>
@@ -625,19 +626,6 @@ function EditarEstoqueContent() {
     </div>
   </section>
 )}
-
-            {error && (
-              <div
-                role="alert"
-                className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-              >
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <p className="text-sm text-green-700">{success}</p>
-            )}
 
             <div className="flex flex-wrap items-center justify-between gap-4">
               

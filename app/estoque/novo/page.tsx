@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-toastify";
 import {
   ArrowLeft,
   Boxes,
@@ -225,7 +226,6 @@ export default function NovoEstoquePage() {
   const [form, setForm] = useState<InventoryForm>(INITIAL_FORM);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -242,7 +242,7 @@ export default function NovoEstoquePage() {
         setCategories(Array.isArray(data) ? data.filter((category: InventoryCategory) => category.type === "INVENTORY") : []);
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
-        setError("Não foi possível carregar as categorias do estoque.");
+        toast.error("Não foi possível carregar as categorias do estoque.");
       }
     }
 
@@ -270,7 +270,6 @@ export default function NovoEstoquePage() {
     setProductSearch("");
     setProductDropdownOpen(false);
     setProductsError(null);
-    setError(null);
 
     setForm((previous) => ({
       ...previous,
@@ -354,6 +353,7 @@ export default function NovoEstoquePage() {
         setProductsError(
           "Não foi possível carregar os produtos cadastrados.",
         );
+        toast.error("Não foi possível carregar os produtos cadastrados.");
       } finally {
         if (!controller.signal.aborted) {
           setLoadingProducts(false);
@@ -397,6 +397,7 @@ export default function NovoEstoquePage() {
       } catch (exception) {
         if (controller.signal.aborted || axios.isCancel(exception)) return;
         setCharacteristicsError("Não foi possível carregar as características do produto.");
+        toast.error("Não foi possível carregar as características do produto.");
       } finally {
         if (!controller.signal.aborted) setLoadingCharacteristics(false);
       }
@@ -425,30 +426,29 @@ export default function NovoEstoquePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
 
     if (productChoice === "YES" && !selectedProduct) {
-      setError("Selecione um produto cadastrado.");
+      toast.error("Selecione um produto cadastrado.");
       return;
     }
 
     if (productChoice === "YES" && (loadingCharacteristics || !characteristics)) {
-      setError(characteristicsError ?? "Aguarde o carregamento das características do produto.");
+      toast.error(characteristicsError ?? "Aguarde o carregamento das características do produto.");
       return;
     }
 
     if (!form.name.trim()) {
-      setError("Informe o nome do item.");
+      toast.error("Informe o nome do item.");
       return;
     }
 
     if (productChoice === "NO" && !selectedCategory) {
-      setError("Selecione uma categoria válida do estoque.");
+      toast.error("Selecione uma categoria válida do estoque.");
       return;
     }
 
     if (!isNonNegativeInteger(form.quantity)) {
-      setError(
+      toast.error(
         "A quantidade inicial deve ser um número inteiro não negativo.",
       );
       return;
@@ -458,7 +458,7 @@ export default function NovoEstoquePage() {
       form.minimumQuantity.trim() &&
       !isNonNegativeInteger(form.minimumQuantity)
     ) {
-      setError(
+      toast.error(
         "A quantidade mínima deve ser um número inteiro não negativo.",
       );
       return;
@@ -467,7 +467,7 @@ export default function NovoEstoquePage() {
     const token = localStorage.getItem("access_token");
 
     if (!token || token === "undefined" || token === "null") {
-      setError("Sessão inválida. Faça login novamente.");
+      toast.error("Sessão inválida. Faça login novamente.");
       return;
     }
 
@@ -528,10 +528,11 @@ export default function NovoEstoquePage() {
         },
       });
 
+      toast.success("Item cadastrado no estoque com sucesso!");
       router.push("/estoque");
       router.refresh();
     } catch (exception) {
-      setError(getErrorMessage(exception));
+      toast.error(getErrorMessage(exception));
     } finally {
       setSaving(false);
     }
@@ -581,15 +582,6 @@ export default function NovoEstoquePage() {
           className="space-y-6"
           noValidate
         >
-          {error && (
-            <div
-              role="alert"
-              className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700"
-            >
-              {error}
-            </div>
-          )}
-
           <section className={SECTION_CLASS}>
             <h2 className="text-lg font-semibold text-[#342d27]">
               É um produto registrado?
@@ -723,11 +715,6 @@ export default function NovoEstoquePage() {
                   </div>
                 </Field>
 
-                {productsError && (
-                  <p className="mt-3 text-sm text-red-600">
-                    {productsError}
-                  </p>
-                )}
               </div>
             )}
           </section>
@@ -904,7 +891,7 @@ export default function NovoEstoquePage() {
                 Carregando características do produto...
               </p>
             ) : productChoice === "YES" && selectedProduct && characteristicsError ? (
-              <p className="mt-6 text-sm text-red-600">{characteristicsError}</p>
+              null
             ) : productChoice === "YES" && selectedProduct && characteristics &&
               characteristicFields.every(({ options }) => !options?.length) ? (
               <p className="mt-6 text-sm text-[#81766b]">

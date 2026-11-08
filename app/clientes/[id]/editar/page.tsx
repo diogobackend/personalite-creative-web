@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { ArrowLeft, Save, UserRound } from "lucide-react";
+import { toast } from "react-toastify";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 import { api } from "../../../../src/lib/api";
 
@@ -83,7 +85,11 @@ function EditClientContent() {
           birthDate: data.birthDate ?? "",
         });
       } catch (cause) {
-        if (!controller.signal.aborted) setError(getError(cause));
+        if (!controller.signal.aborted) {
+          const message = getError(cause);
+          setError(message);
+          toast.error(message);
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -100,11 +106,10 @@ function EditClientContent() {
     event.preventDefault();
     if (!client || saving) return;
     if (!form.name.trim()) {
-      setError("Informe o nome completo.");
+      toast.error("Informe o nome completo.");
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const token = localStorage.getItem("access_token");
       if (!token || token === "undefined" || token === "null") throw new Error("Sessão não encontrada. Faça login novamente.");
@@ -123,10 +128,11 @@ function EditClientContent() {
       await api.patch(`/users/${encodeURIComponent(id)}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      toast.success("Cliente atualizado com sucesso!");
       router.push(`/clientes/${encodeURIComponent(id)}`);
       router.refresh();
     } catch (cause) {
-      setError(getError(cause));
+      toast.error(getError(cause));
     } finally {
       setSaving(false);
     }
@@ -158,7 +164,6 @@ function EditClientContent() {
           {client.rg == null && <Field label="RG"><input className={inputClass} value={form.rg} onChange={(e) => update("rg", e.target.value)} maxLength={20} placeholder="RG" /></Field>}
           {client.birthDate == null && <Field label="Data de nascimento"><input type="date" className={inputClass} value={form.birthDate} onChange={(e) => update("birthDate", e.target.value)} /></Field>}
         </div>
-        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
         <div className="flex flex-wrap justify-end gap-3 border-t border-[#f0ece5] pt-6">
           <Link href={`/clientes/${encodeURIComponent(id)}`} className="inline-flex items-center justify-center rounded-xl border border-[#e8e0d4] px-5 py-3 text-sm font-semibold text-stone-600 hover:bg-[#faf8f4]">Cancelar</Link>
           <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60">
