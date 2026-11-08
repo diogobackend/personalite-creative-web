@@ -175,7 +175,9 @@ export default function ClientesPage() {
     setPage(0);
   };
 
-  const hasFilters = Object.values(applied).some(Boolean);
+  const appliedFiltersCount = Object.values(applied).filter(
+  (value) => value.trim().length > 0
+).length;
 
   return (
     <DashboardLayout>
@@ -268,9 +270,14 @@ export default function ClientesPage() {
           <div>
             <h2 className="text-base font-semibold">Clientes cadastrados</h2>
             <p className="mt-1 text-xs text-stone-400">
-              {loading ? "Carregando..." : result ? `${result.totalElements} cliente(s) encontrado(s)` : "Consulta de clientes"}
-              {hasFilters ? " · Filtros aplicados" : ""}
-            </p>
+            {loading
+              ? "Carregando..."
+              : result
+                ? `${result.totalElements} cliente(s) encontrado(s)`
+                : "Consulta de clientes"}
+            {appliedFiltersCount > 0 &&
+              ` · ${appliedFiltersCount} filtro${appliedFiltersCount > 1 ? "s" : ""} aplicado${appliedFiltersCount > 1 ? "s" : ""}`}
+          </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <Field label="Ordenar por"><select className={`${inputClass} w-auto min-w-[145px]`} value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(0); }}>{sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>

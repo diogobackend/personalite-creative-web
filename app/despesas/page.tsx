@@ -449,9 +449,9 @@ export default function ExpensesPageScreen() {
           totalElements,
         );
 
-  const hasActiveFilters = Object.values(applied).some(
-    (value) => value.trim() !== "",
-  );
+      const appliedFiltersCount = Object.values(applied).filter(
+      (value) => value.trim().length > 0,
+    ).length;
 
   return (
     <DashboardLayout>
@@ -727,14 +727,16 @@ export default function ExpensesPageScreen() {
               </h2>
 
               <p className="mt-1 text-sm text-[#81766b]">
-                {loading
-                  ? "Carregando despesas..."
-                  : `${totalElements} ${
-                      totalElements === 1
-                        ? "despesa encontrada"
-                        : "despesas encontradas"
-                    }`}
-              </p>
+              {loading
+                ? "Carregando despesas..."
+                : `${totalElements} ${
+                    totalElements === 1
+                      ? "despesa encontrada"
+                      : "despesas encontradas"
+                  }`}
+              {appliedFiltersCount > 0 &&
+                ` · ${appliedFiltersCount} filtro${appliedFiltersCount > 1 ? "s" : ""} aplicado${appliedFiltersCount > 1 ? "s" : ""}`}
+            </p>
             </div>
 
             <div className="flex flex-wrap items-end gap-3">

@@ -448,10 +448,12 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
     <div>
       <h2 className="text-lg font-semibold text-[#342d27]">Histórico</h2>
       <p className="mt-1 text-sm text-[#81766b]">
-        {loading
-          ? "Carregando vendas..."
-          : `${totalElements} ${totalElements === 1 ? " encontrada" : " encontradas"}`}
-      </p>
+      {loading
+        ? "Carregando vendas..."
+        : `${totalElements} ${totalElements === 1 ? "venda encontrada" : "vendas encontradas"}`}
+      {activeCount > 0 &&
+        ` · ${activeCount} filtro${activeCount > 1 ? "s" : ""} aplicado${activeCount > 1 ? "s" : ""}`}
+    </p>
     </div>
 
     <div className="flex flex-wrap items-end gap-3">

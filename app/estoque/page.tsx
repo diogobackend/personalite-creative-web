@@ -226,7 +226,12 @@ export default function EstoquePage() {
     return () => controller.abort();
   }, []);
 
-  const hasFilters = Object.values(applied).some((value) => value.trim() !== "");
+  const appliedFiltersCount = applied.sku.trim()
+  ? 1
+  : Object.values(applied).filter(
+      (value) => value.trim().length > 0
+    ).length;
+
   const skuActive = applied.sku.trim() !== "";
   const totalElements = result?.totalElements ?? 0;
   const totalPages = result?.totalPages ?? 0;
@@ -313,9 +318,12 @@ export default function EstoquePage() {
             <div>
               <h2 className="text-lg font-semibold text-[#342d27]">Itens cadastrados</h2>
               <p className="mt-1 text-sm text-[#81766b]">
-                {loading ? "Carregando estoque..." : `${totalElements} ${totalElements === 1 ? "item encontrado" : "itens encontrados"}`}
-                {hasFilters ? " · Filtros aplicados" : ""}
-              </p>
+              {loading
+                ? "Carregando estoque..."
+                : `${totalElements} ${totalElements === 1 ? "item encontrado" : "itens encontrados"}`}
+              {appliedFiltersCount > 0 &&
+                ` · ${appliedFiltersCount} filtro${appliedFiltersCount > 1 ? "s" : ""} aplicado${appliedFiltersCount > 1 ? "s" : ""}`}
+            </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Ordenar por">
