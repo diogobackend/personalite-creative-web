@@ -26,6 +26,7 @@ import {
 
 import { api } from "../../src/lib/api";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type ExpenseCategory = string;
 
@@ -845,7 +846,7 @@ export default function ExpensesPageScreen() {
                       colSpan={7}
                       className="px-5 py-16 text-center text-sm text-[#81766b]"
                     >
-                      Carregando despesas...
+                      <Loading />
                     </td>
                   </tr>
                 ) : !result?.content.length ? (

@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import { api } from "../../src/lib/api";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type User = {
   userId: string;
@@ -402,7 +403,7 @@ export default function PerfilPage() {
     return (
       <DashboardLayout>
         <div className="flex min-h-[400px] items-center justify-center">
-          <Loader2 className="h-7 w-7 animate-spin text-[#b99b66]" />
+          <Loading />
         </div>
       </DashboardLayout>
     );

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type Category = { id: string; name: string; type: "PRODUCT" | "INVENTORY" | "EXPENSE" };
 type PricingType = "FIXED" | "TIERED" | "QUOTE";
@@ -461,7 +462,7 @@ export default function ProductsPageScreen() {
 
         ) : loading ? (
 
-          <div className="px-6 py-16 text-center text-sm text-stone-400">Consultando produtos...</div>
+          <Loading />
 
         ) : !result || result.content.length === 0 ? (
 

@@ -10,6 +10,7 @@ import {
 
 import { api } from "../../src/lib/api";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type Inventory = {
   id: string;
@@ -353,7 +354,7 @@ export default function EstoquePage() {
               <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-4 text-sm font-semibold text-[#a98a58]">Tentar novamente</button>
             </div>
           ) : loading ? (
-            <div className="px-6 py-16 text-center text-sm text-[#81766b]">Consultando estoque...</div>
+            <Loading />
           ) : !result?.content.length ? (
             <div className="flex flex-col items-center px-6 py-16 text-center">
               <Boxes size={40} className="mb-4 text-[#cbb58e]" />

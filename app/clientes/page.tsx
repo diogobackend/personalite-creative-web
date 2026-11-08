@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import { api } from "../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type User = {
   userId: string;
@@ -290,7 +291,7 @@ export default function ClientesPage() {
         {error ? (
           <div className="px-6 py-12 text-center"><p className="text-sm font-semibold text-red-700">{error}</p><button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-4 text-sm font-semibold text-[#a98a58]">Tentar novamente</button></div>
         ) : loading ? (
-          <div className="px-6 py-16 text-center text-sm text-stone-400">Consultando clientes...</div>
+          <Loading />
         ) : !result || result.content.length === 0 ? (
           <div className="flex flex-col items-center px-6 py-16 text-center"><Users className="mb-4 h-10 w-10 text-[#cbb58e]" /><h3 className="text-base font-semibold">Nenhum cliente encontrado</h3><p className="mt-2 text-sm text-stone-400">Ajuste os filtros para consultar outros clientes.</p></div>
         ) : (

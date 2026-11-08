@@ -11,6 +11,7 @@ import {
 
 import { api } from "../../src/lib/api";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type PaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID";
 type DeadlineStatus = "NO_DEADLINE" | "ON_TIME" | "DUE_TODAY" | "OVERDUE";
@@ -560,7 +561,7 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
               colSpan={7}
               className="px-5 py-16 text-center text-sm text-[#81766b]"
             >
-              Carregando vendas...
+             <Loading />
             </td>
           </tr>
         ) : !result?.sales.length ? (

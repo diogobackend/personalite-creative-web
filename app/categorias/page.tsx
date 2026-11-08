@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { Boxes, Eye, Loader2, Package, Pencil, Plus, ReceiptText, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import { api } from "../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type CategoryType = "PRODUCT" | "INVENTORY" | "EXPENSE";
 type Category = { id: string; name: string; type: CategoryType; createdAt: string; updatedAt: string };
@@ -238,7 +239,7 @@ export default function CategoriasPage() {
                 <span className="rounded-full bg-[#f4ede2] px-3 py-1 text-xs font-semibold text-[#927448]">{loadError || loading ? "—" : items.length}</span>
               </div>
               {loading ? (
-                <div className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-[#81766b]"><Loader2 size={17} className="animate-spin" /> Carregando categorias...</div>
+                <div className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-[#81766b]"><Loading /></div>
               ) : loadError ? (
                 <p className="px-5 py-10 text-center text-sm text-[#81766b]">Listagem indisponível.</p>
               ) : items.length === 0 ? (
