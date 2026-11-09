@@ -50,7 +50,7 @@ type Expense = {
   paidAmount: number;
   remainingAmount: number;
   paidPercentage: number;
-  category: ExpenseCategory;
+  category: string;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
   quantity: number | null;
@@ -339,7 +339,7 @@ function ExpenseDetailsContent() {
               </h2>
 
               <p className="mt-2 text-sm text-[#81766b]">
-                {CATEGORY_LABELS[expense.category]}
+                {CATEGORY_LABELS[expense.category as ExpenseCategory] ?? expense.category}
               </p>
             </div>
 
@@ -402,13 +402,16 @@ function ExpenseDetailsContent() {
           <Section title="Informações gerais" icon={FileText}>
             <div className="grid gap-6 sm:grid-cols-2">
               <DetailField
-                label="Quantidade"
-                value={
-                  expense.category === "STOCK"
-                    ? (expense.quantity ?? "—")
-                    : "N/A"
-                }
-              />
+                  label="Categoria"
+                  value={CATEGORY_LABELS[expense.category as ExpenseCategory] ?? expense.category}
+                />
+
+                {expense.category === "item de estoque" && (
+                  <DetailField
+                    label="Quantidade"
+                    value={expense.quantity ?? "—"}
+                  />
+                )}
 
               <div className="sm:col-span-2">
                 <DetailField
