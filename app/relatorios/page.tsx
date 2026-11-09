@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { ElementType } from "react";
 import {
   ArrowDownRight,
   ArrowLeft,
@@ -19,14 +20,15 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import type { ElementType } from "react";
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import {
   getReportOverview,
   getSalesReport,
+  getExpensesReport,
   type ReportOverview,
   type SalesReport,
+  type ExpensesReport,
 } from "../../src/services/reportService";
 
 type PeriodPreset =
@@ -61,11 +63,13 @@ function dateToString(date: Date): string {
 
 function getPresetPeriod(preset: PeriodPreset): Period {
   const today = new Date();
+
   const start = new Date(
     today.getFullYear(),
     today.getMonth(),
-    today.getDate(),
+    today.getDate()
   );
+
   const end = new Date(start);
 
   switch (preset) {
@@ -220,6 +224,59 @@ function SummaryRow({
   );
 }
 
+function PaymentProgress({
+  title,
+  percentage,
+  loading,
+  color = "emerald",
+}: {
+  title: string;
+  percentage: number | null;
+  loading: boolean;
+  color?: "emerald" | "red";
+}) {
+  const progress =
+    percentage === null
+      ? 0
+      : Math.min(100, Math.max(0, percentage));
+
+  return (
+    <div className="mt-7">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-stone-500">
+          {title}
+        </span>
+
+        <span className="text-xs font-semibold text-[#342d27]">
+          {loading
+            ? "Carregando..."
+            : percentage === null
+              ? "—"
+              : formatPercentage(percentage)}
+        </span>
+      </div>
+
+      <div
+        role="progressbar"
+        aria-label={title}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={
+          loading || percentage === null ? undefined : progress
+        }
+        className="h-3 overflow-hidden rounded-full bg-[#f0ece5]"
+      >
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            color === "emerald" ? "bg-emerald-600" : "bg-red-500"
+          }`}
+          style={{ width: `${loading ? 0 : progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [preset, setPreset] =
     useState<PeriodPreset>("currentMonth");
@@ -235,8 +292,13 @@ export default function ReportsPage() {
   const [salesReport, setSalesReport] =
     useState<SalesReport | null>(null);
 
+  const [expensesReport, setExpensesReport] =
+    useState<ExpensesReport | null>(null);
+
   const [overviewError, setOverviewError] = useState(false);
   const [salesError, setSalesError] = useState(false);
+  const [expensesError, setExpensesError] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -251,15 +313,7 @@ export default function ReportsPage() {
     period.startDate <= period.endDate;
 
   useEffect(() => {
-    if (!initialized) return;
-
-    if (
-      !period.startDate ||
-      !period.endDate ||
-      period.startDate > period.endDate
-    ) {
-      return;
-    }
+    if (!initialized || !validPeriod) return;
 
     let active = true;
 
@@ -267,11 +321,16 @@ export default function ReportsPage() {
       const results = await Promise.allSettled([
         getReportOverview(period),
         getSalesReport(period),
+        getExpensesReport(period),
       ]);
 
       if (!active) return;
 
-      const [overviewResult, salesResult] = results;
+      const [
+        overviewResult,
+        salesResult,
+        expensesResult,
+      ] = results;
 
       if (overviewResult.status === "fulfilled") {
         setOverview(overviewResult.value);
@@ -289,6 +348,14 @@ export default function ReportsPage() {
         setSalesError(true);
       }
 
+      if (expensesResult.status === "fulfilled") {
+        setExpensesReport(expensesResult.value);
+        setExpensesError(false);
+      } else {
+        setExpensesReport(null);
+        setExpensesError(true);
+      }
+
       setLoading(false);
     }
 
@@ -297,7 +364,7 @@ export default function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [initialized, period, reloadKey]);
+  }, [initialized, period, reloadKey, validPeriod]);
 
   const changePreset = (value: PeriodPreset) => {
     setPreset(value);
@@ -319,6 +386,12 @@ export default function ReportsPage() {
     ) {
       setOverview(null);
       setSalesReport(null);
+      setExpensesReport(null);
+
+      setOverviewError(false);
+      setSalesError(false);
+      setExpensesError(false);
+
       setLoading(false);
     }
   };
@@ -331,14 +404,28 @@ export default function ReportsPage() {
   };
 
   const overviewValue = (
-    value: number | undefined,
+    value: number | undefined
   ): number | null =>
     overview === null ? null : (value ?? null);
 
   const salesValue = (
-    value: number | undefined,
+    value: number | undefined
   ): number | null =>
     salesReport === null ? null : (value ?? null);
+
+  const expensesValue = (
+    value: number | undefined
+  ): number | null =>
+    expensesReport === null ? null : (value ?? null);
+
+  const hasErrors =
+    overviewError || salesError || expensesError;
+
+  const failedReports = [
+    overviewError ? "financeiro" : null,
+    salesError ? "vendas" : null,
+    expensesError ? "despesas" : null,
+  ].filter(Boolean);
 
   return (
     <DashboardLayout>
@@ -476,17 +563,14 @@ export default function ReportsPage() {
       </section>
 
       {/* Erros */}
-      {(overviewError || salesError) && (
+      {hasErrors && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4"
         >
           <p className="text-sm text-red-700">
-            {overviewError && salesError
-              ? "Não foi possível carregar os relatórios."
-              : overviewError
-                ? "Não foi possível carregar o relatório financeiro."
-                : "Não foi possível carregar o relatório de vendas."}
+            Não foi possível carregar:{" "}
+            {failedReports.join(", ")}.
           </p>
 
           <button
@@ -630,7 +714,7 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Detalhamento de vendas */}
+      {/* Recebimentos de vendas */}
       <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-[#f7f2e9] p-2.5">
@@ -686,49 +770,142 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="mt-7">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-stone-500">
-              Progresso de recebimento
-            </span>
+        <PaymentProgress
+          title="Progresso de recebimento"
+          percentage={salesValue(salesReport?.receivedPercentage)}
+          loading={loading}
+          color="emerald"
+        />
+      </section>
 
-            <span className="text-xs font-semibold text-[#342d27]">
-              {salesReport
-                ? formatPercentage(salesReport.receivedPercentage)
-                : "—"}
-            </span>
+      {/* Indicadores de despesas */}
+      <section>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-[#342d27]">
+            Indicadores de despesas
+          </h2>
+
+          <p className="mt-1 text-xs text-stone-400">
+            Controle dos compromissos financeiros registrados no período.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <MetricCard
+            title="Quantidade de despesas"
+            value={expensesValue(expensesReport?.totalExpenses)}
+            description="Total de despesas registradas"
+            icon={ReceiptText}
+            loading={loading}
+            format="number"
+          />
+
+          <MetricCard
+            title="Despesas previstas"
+            value={expensesValue(expensesReport?.expectedAmount)}
+            description="Valor total das despesas"
+            icon={CircleDollarSign}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Despesas pagas"
+            value={expensesValue(expensesReport?.paidAmount)}
+            description="Valor já pago"
+            icon={ArrowDownRight}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Valores pendentes"
+            value={expensesValue(expensesReport?.outstandingAmount)}
+            description="Saldo restante para pagamento"
+            icon={Clock3}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Despesas pendentes"
+            value={expensesValue(expensesReport?.pendingExpenses)}
+            description="Despesas com pagamento incompleto"
+            icon={ReceiptText}
+            loading={loading}
+            format="number"
+          />
+
+          <MetricCard
+            title="Percentual pago"
+            value={expensesValue(expensesReport?.paidPercentage)}
+            description="Percentual das despesas já quitado"
+            icon={Percent}
+            loading={loading}
+            format="percentage"
+          />
+        </div>
+      </section>
+
+      {/* Pagamentos de despesas */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-red-50 p-2.5">
+            <ArrowDownRight className="h-5 w-5 text-red-500" />
           </div>
 
-          <div
-            role="progressbar"
-            aria-label="Percentual recebido das vendas"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={
-              salesReport
-                ? Math.min(
-                    100,
-                    Math.max(0, salesReport.receivedPercentage),
-                  )
-                : undefined
-            }
-            className="h-3 overflow-hidden rounded-full bg-[#f0ece5]"
-          >
-            <div
-              className="h-full rounded-full bg-emerald-600 transition-all duration-500"
-              style={{
-                width: `${
-                  salesReport
-                    ? Math.min(
-                        100,
-                        Math.max(0, salesReport.receivedPercentage),
-                      )
-                    : 0
-                }%`,
-              }}
-            />
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">
+              Pagamentos de despesas
+            </h2>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Acompanhamento dos valores pagos e pendentes.
+            </p>
           </div>
         </div>
+
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-[#faf8f5] p-5">
+            <p className="text-sm text-stone-500">
+              Total pago
+            </p>
+
+            <p className="mt-3 text-2xl font-bold text-emerald-700">
+              {loading
+                ? "Carregando..."
+                : expensesReport
+                  ? formatCurrency(expensesReport.paidAmount)
+                  : "—"}
+            </p>
+
+            <p className="mt-2 text-xs text-stone-400">
+              Valor já pago das despesas
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#faf8f5] p-5">
+            <p className="text-sm text-stone-500">
+              Total a pagar
+            </p>
+
+            <p className="mt-3 text-2xl font-bold text-[#342d27]">
+              {loading
+                ? "Carregando..."
+                : expensesReport
+                  ? formatCurrency(expensesReport.outstandingAmount)
+                  : "—"}
+            </p>
+
+            <p className="mt-2 text-xs text-stone-400">
+              Saldo pendente das despesas
+            </p>
+          </div>
+        </div>
+
+        <PaymentProgress
+          title="Progresso de pagamento"
+          percentage={expensesValue(expensesReport?.paidPercentage)}
+          loading={loading}
+          color="red"
+        />
       </section>
 
       {/* Resumos financeiros */}
@@ -792,19 +969,19 @@ export default function ReportsPage() {
           <div className="mt-8 space-y-6">
             <SummaryRow
               label="Total previsto"
-              value={overviewValue(overview?.expectedExpenses)}
+              value={expensesValue(expensesReport?.expectedAmount)}
               loading={loading}
             />
 
             <SummaryRow
               label="Total pago"
-              value={overviewValue(overview?.paidExpenses)}
+              value={expensesValue(expensesReport?.paidAmount)}
               loading={loading}
             />
 
             <SummaryRow
               label="Pendente de pagamento"
-              value={overviewValue(overview?.outstandingExpenses)}
+              value={expensesValue(expensesReport?.outstandingAmount)}
               loading={loading}
               highlight
             />

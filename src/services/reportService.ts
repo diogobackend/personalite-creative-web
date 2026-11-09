@@ -25,6 +25,15 @@ export interface SalesReport {
   receivedPercentage: number;
 }
 
+export interface ExpensesReport {
+  totalExpenses: number;
+  expectedAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  paidPercentage: number;
+  pendingExpenses: number;
+}
+
 export async function getReportOverview(
   period: ReportPeriod = {}
 ): Promise<ReportOverview> {
@@ -46,6 +55,21 @@ export async function getSalesReport(
   const token = localStorage.getItem("access_token");
 
   const response = await api.get<SalesReport>("/reports/sales", {
+    params: period,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return response.data;
+}
+
+export async function getExpensesReport(
+  period: ReportPeriod = {}
+): Promise<ExpensesReport> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<ExpensesReport>("/reports/expenses", {
     params: period,
     headers: {
       Authorization: `Bearer ${token}`,
