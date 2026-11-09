@@ -24,6 +24,7 @@ import {
 
 import { api } from "../../../../src/lib/api";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type ExpenseCategory = string;
 
@@ -789,12 +790,7 @@ function EditExpenseContent() {
 
   if (loadingExpense) {
     return (
-      <DashboardLayout>
-        <div className="flex min-h-[50vh] items-center justify-center gap-3 text-[#81766b]">
-          <Loader2 size={22} className="animate-spin" />
-          Carregando despesa...
-        </div>
-      </DashboardLayout>
+      <Loading />
     );
   }
 
@@ -925,7 +921,7 @@ function EditExpenseContent() {
                     onChange={(inventoryId) => updateForm("inventoryId", inventoryId)}
                   />
                   {loadingInventory && (
-                    <p className="mt-2 text-xs text-[#81766b]">Carregando itens do estoque...</p>
+                    <Loading />
                   )}
                 </Field>
               </div>
@@ -1103,9 +1099,7 @@ function EditExpenseContent() {
       </div>
 
       {loadingProducts && (
-        <p className="text-sm text-[#81766b]">
-          Carregando produtos...
-        </p>
+        <Loading />
       )}
 
       {form.products.map((product, index) => (
@@ -1257,7 +1251,7 @@ function EditExpenseContent() {
 
 export default function EditExpensePage() {
   return (
-    <Suspense fallback={<div>Carregando despesa...</div>}>
+    <Suspense fallback={<Loading />}>
       <EditExpenseContent />
     </Suspense>
   );

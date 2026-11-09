@@ -9,6 +9,7 @@ import { ArrowLeft, Boxes, Check, Loader2, Package, Save, SlidersHorizontal } fr
 
 import { api } from "../../../../src/lib/api";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type Inventory = {
   id: string;
@@ -401,10 +402,7 @@ function EditarEstoqueContent() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#ece6dc] bg-white p-16 text-sm text-[#81766b]">
-            <Loader2 size={20} className="animate-spin" />
-            Carregando dados atualizados...
-          </div>
+          <Loading />
         ) : !inventory || !form ? (
           <div className="rounded-2xl border border-[#ece6dc] bg-white p-8">
             <p className="text-sm text-red-700">
@@ -661,7 +659,7 @@ function EditarEstoqueContent() {
 
 export default function EditarEstoquePage() {
   return (
-    <Suspense fallback={<div>Carregando item...</div>}>
+    <Suspense fallback={<Loading />}>
       <EditarEstoqueContent />
     </Suspense>
   );

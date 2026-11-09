@@ -994,9 +994,7 @@ function ProductDetailsContent() {
     </details>
 
     {expensesLoading ? (
-      <p className="rounded-xl border border-[#eee8df] p-5 text-sm text-stone-500">
-        Carregando despesas...
-      </p>
+      <Loading />
     ) : expensesError ? (
       <div className="rounded-xl border border-red-100 p-5 text-sm text-red-700">
         {expensesError}
@@ -1186,7 +1184,7 @@ function ProductDetailsContent() {
           </details>
 
           {inventoryLoading ? (
-            <p className="mt-5 rounded-xl border border-[#eee8df] bg-white p-5 text-sm text-stone-500">Carregando estoque...</p>
+            <Loading />
           ) : inventoryError ? (
             <div className="mt-5 rounded-xl border border-red-100 bg-white p-5 text-sm text-red-700">
               {inventoryError}

@@ -25,6 +25,7 @@ import {
 
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 import { api } from "../../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type ProductChoice = "YES" | "NO";
 
@@ -678,13 +679,7 @@ export default function NovoEstoquePage() {
                     {productDropdownOpen && (
                       <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-[#e8e0d4] bg-white shadow-lg">
                         {loadingProducts ? (
-                          <div className="flex items-center gap-2 px-4 py-4 text-sm text-[#81766b]">
-                            <Loader2
-                              size={16}
-                              className="animate-spin"
-                            />
-                            Carregando produtos...
-                          </div>
+                          <Loading />
                         ) : filteredProducts.length === 0 ? (
                           <p className="px-4 py-4 text-sm text-[#81766b]">
                             Nenhum produto encontrado.
@@ -886,10 +881,7 @@ export default function NovoEstoquePage() {
             />
 
             {productChoice === "YES" && selectedProduct && loadingCharacteristics ? (
-              <p className="mt-6 flex items-center gap-2 text-sm text-[#81766b]">
-                <Loader2 size={16} className="animate-spin" />
-                Carregando características do produto...
-              </p>
+              <Loading />
             ) : productChoice === "YES" && selectedProduct && characteristicsError ? (
               null
             ) : productChoice === "YES" && selectedProduct && characteristics &&

@@ -8,6 +8,7 @@ import { ArrowLeft, Boxes, Pencil, RefreshCw, Eye, Plus } from "lucide-react";
 
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type Inventory = {
   id: string;
@@ -291,9 +292,7 @@ function ExpenseHistory({ inventoryId }: { inventoryId: string }) {
       <tbody className="divide-y divide-[#eee8df]">
         {loadingExpenses ? (
           <tr>
-            <td colSpan={6} className="px-4 py-8 text-center text-[#81766b]">
-              Carregando histórico...
-            </td>
+            <Loading />
           </tr>
         ) : expenseError ? (
           <tr>
@@ -443,7 +442,7 @@ function VisualizarEstoqueContent() {
         </div>
 
         {loading ? (
-          <section className="rounded-2xl border border-[#ece6dc] bg-white px-6 py-16 text-center text-sm text-[#81766b]">Carregando item...</section>
+          <Loading />
         ) : error ? (
           <section className="rounded-2xl border border-[#ece6dc] bg-white px-6 py-14 text-center">
             <Boxes size={38} className="mx-auto mb-4 text-[#cbb58e]" />
@@ -515,7 +514,7 @@ function VisualizarEstoqueContent() {
 
 export default function VisualizarEstoquePage() {
   return (
-    <Suspense fallback={<div>Carregando item...</div>}>
+    <Suspense fallback={<Loading />}>
       <VisualizarEstoqueContent />
     </Suspense>
   );

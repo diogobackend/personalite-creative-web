@@ -17,6 +17,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import type { ElementType, ReactNode } from "react";
+import Loading from "@/src/components/layout/Loading";
 
 type ExpenseCategory =
   | "TRANSPORT"
@@ -274,11 +275,7 @@ function ExpenseDetailsContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8f5]">
-        <p className="text-sm text-[#81766b]">
-          Carregando dados da despesa...
-        </p>
-      </div>
+      <Loading />
     );
   }
 
@@ -468,9 +465,7 @@ export default function ExpenseDetailsPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8f5]">
-          <p className="text-sm text-[#81766b]">
-            Carregando despesa...
-          </p>
+          <Loading />
         </div>
       }
     >

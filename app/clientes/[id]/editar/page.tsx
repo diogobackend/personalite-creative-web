@@ -9,6 +9,7 @@ import { ArrowLeft, Save, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 import { api } from "../../../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type Client = {
   userId: string;
@@ -148,7 +149,7 @@ function EditClientContent() {
       </div>
     </div>
     <section className="mt-7 overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
-      {loading ? <p className="px-6 py-16 text-center text-sm text-stone-500">Carregando dados do cliente...</p>
+      {loading ? <Loading />
       : !client ? <p className="px-6 py-16 text-center text-sm font-medium text-red-700">{error ?? "Cliente não encontrado."}</p>
       : <form onSubmit={save} className="space-y-7 p-5 sm:p-7">
         <div className="flex items-center gap-3 border-b border-[#f0ece5] pb-6">

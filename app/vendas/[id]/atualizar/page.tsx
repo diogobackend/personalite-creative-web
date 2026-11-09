@@ -529,9 +529,7 @@ useEffect(() => {
 
             if (!characteristics) {
             return (
-                <p className="mt-4 text-sm text-[#81766b]">
-                Carregando características...
-                </p>
+                <Loading />
             );
             }
 
@@ -593,7 +591,7 @@ useEffect(() => {
 
 export default function EditSalePage() {
   return (
-    <Suspense fallback={<div>Carregando venda...</div>}>
+    <Suspense fallback={<Loading />}>
       <EditSaleContent />
     </Suspense>
   );

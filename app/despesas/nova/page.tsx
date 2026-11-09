@@ -23,6 +23,7 @@ import {
 
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type ExpenseCategory = string;
 
@@ -805,7 +806,7 @@ export default function NewExpensePage() {
                     onChange={(inventoryId) => updateForm("inventoryId", inventoryId)}
                   />
                   {loadingInventory && (
-                    <p className="mt-2 text-xs text-[#81766b]">Carregando itens do estoque...</p>
+                    <Loading />
                   )}
                 </Field>
               </div>
@@ -1049,9 +1050,7 @@ export default function NewExpensePage() {
       </div>
 
       {loadingProducts && (
-        <p className="text-sm text-[#81766b]">
-          Carregando produtos...
-        </p>
+        <Loading />
       )}
 
       {form.products.map((product, index) => (

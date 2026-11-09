@@ -1323,9 +1323,7 @@ export default function EditProductPage() {
   return (
     <Suspense
       fallback={
-        <p className="p-6 text-sm text-stone-500">
-          Carregando...
-        </p>
+        <Loading />
       }
     >
       <EditProductContent />

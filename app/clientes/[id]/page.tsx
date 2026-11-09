@@ -7,6 +7,7 @@ import axios from "axios";
 import { ArrowLeft, Eye, Pencil, Plus, UserRound } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 import { api } from "../../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type Client = {
   userId: string;
@@ -235,7 +236,7 @@ function ClientDetailsContent() {
       </Link>}
     </div>
     <section className="mt-7 overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
-      {loading ? <p className="px-6 py-16 text-center text-sm text-stone-500">Carregando dados do cliente...</p>
+      {loading ? <Loading />
       : error ? <p className="px-6 py-16 text-center text-sm font-medium text-red-700">{error}</p>
       : client ? <div className="space-y-8 p-5 sm:p-7">
         <div className="flex items-center gap-3 border-b border-[#f0ece5] pb-6">
@@ -320,7 +321,7 @@ function ClientDetailsContent() {
               <label className="block text-xs font-semibold text-stone-600">Entrega<select value={advanced.delivered ?? ""} onChange={(e) => setAdvancedField("delivered", e.target.value)} className={fieldClass}><option value="">Todas</option><option value="yes">Entregues</option><option value="no">Não entregues</option></select></label>
             </div>
           </details>
-          {salesLoading && <p className="mb-4 text-sm text-stone-500">Carregando compras...</p>}
+          {salesLoading && <Loading />}
           {salesError && <p className="mb-4 text-sm text-red-700">{salesError}</p>}
           <div className="overflow-x-auto rounded-xl border border-[#eee8df] bg-white">
             <table className="w-full min-w-[780px] text-left text-sm">
