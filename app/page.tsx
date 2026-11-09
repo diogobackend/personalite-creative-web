@@ -17,19 +17,31 @@ import {
   TrendingUp,
   Wallet,
   RefreshCw,
+  ReceiptText,
+  Percent,
 } from "lucide-react";
 import type { ElementType } from "react";
+
 import DashboardLayout from "../src/components/layout/DashboardLayout";
 import {
   getReportOverview,
+  getSalesReport,
   type ReportOverview,
+  type SalesReport,
 } from "../src/services/reportService";
 
-function formatCurrency(value: number | null | undefined): string {
+function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(Number(value ?? 0));
+  }).format(value);
+}
+
+function formatPercentage(value: number): string {
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
 }
 
 function MetricCard({
@@ -37,18 +49,20 @@ function MetricCard({
   value,
   icon: Icon,
   description,
-  loading = false,
+  loading,
 }: {
   title: string;
   value: string;
   icon: ElementType;
   description: string;
-  loading?: boolean;
+  loading: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-stone-500">{title}</p>
+        <p className="text-sm font-medium text-stone-500">
+          {title}
+        </p>
 
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f7f2e9]">
           <Icon className="h-5 w-5 text-[#a98a58]" />
@@ -63,7 +77,9 @@ function MetricCard({
         </p>
       )}
 
-      <p className="mt-3 text-xs text-stone-400">{description}</p>
+      <p className="mt-3 text-xs text-stone-400">
+        {description}
+      </p>
     </div>
   );
 }
@@ -73,13 +89,13 @@ function FinancialRow({
   value,
   icon: Icon,
   color,
-  loading = false,
+  loading,
 }: {
   title: string;
-  value: number;
+  value: number | null;
   icon: ElementType;
   color: "green" | "red" | "amber";
-  loading?: boolean;
+  loading: boolean;
 }) {
   const colors = {
     green: "bg-emerald-50 text-emerald-600",
@@ -94,14 +110,16 @@ function FinancialRow({
           <Icon className="h-5 w-5" />
         </div>
 
-        <span className="text-sm text-stone-500">{title}</span>
+        <span className="text-sm text-stone-500">
+          {title}
+        </span>
       </div>
 
       {loading ? (
         <div className="h-5 w-24 animate-pulse rounded bg-stone-100" />
       ) : (
         <span className="shrink-0 text-sm font-semibold text-[#342d27]">
-          {formatCurrency(value)}
+          {value === null ? "—" : formatCurrency(value)}
         </span>
       )}
     </div>
@@ -109,30 +127,60 @@ function FinancialRow({
 }
 
 export default function HomePage() {
-  const [overview, setOverview] = useState<ReportOverview | null>(null);
+  const [overview, setOverview] =
+    useState<ReportOverview | null>(null);
+
+  const [salesReport, setSalesReport] =
+    useState<SalesReport | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [overviewError, setOverviewError] = useState(false);
+  const [salesError, setSalesError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [currentMonth, setCurrentMonth] = useState("");
+
+  useEffect(() => {
+    setCurrentMonth(
+      new Intl.DateTimeFormat("pt-BR", {
+        month: "long",
+        year: "numeric",
+      }).format(new Date()),
+    );
+  }, []);
 
   useEffect(() => {
     let active = true;
 
-    getReportOverview()
-      .then((data) => {
-        if (active) {
-          setOverview(data);
-          setError(false);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setOverview(null);
-          setError(true);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    async function loadReports() {
+      const results = await Promise.allSettled([
+        getReportOverview(),
+        getSalesReport(),
+      ]);
+
+      if (!active) return;
+
+      const [overviewResult, salesResult] = results;
+
+      if (overviewResult.status === "fulfilled") {
+        setOverview(overviewResult.value);
+        setOverviewError(false);
+      } else {
+        setOverview(null);
+        setOverviewError(true);
+      }
+
+      if (salesResult.status === "fulfilled") {
+        setSalesReport(salesResult.value);
+        setSalesError(false);
+      } else {
+        setSalesReport(null);
+        setSalesError(true);
+      }
+
+      setLoading(false);
+    }
+
+    void loadReports();
 
     return () => {
       active = false;
@@ -141,25 +189,31 @@ export default function HomePage() {
 
   const refresh = () => {
     setLoading(true);
-    setError(false);
+    setOverviewError(false);
+    setSalesError(false);
     setReloadKey((current) => current + 1);
   };
 
-  const hasData = overview !== null;
+  const financialValue = (
+    value: number | null | undefined,
+  ): string =>
+    value === null || value === undefined
+      ? "—"
+      : formatCurrency(value);
 
-  const financialValue = (value: number | undefined) =>
-    hasData ? formatCurrency(value) : "—";
+  const numberValue = (
+    value: number | null | undefined,
+  ): string =>
+    value === null || value === undefined
+      ? "—"
+      : new Intl.NumberFormat("pt-BR").format(value);
 
-  const [currentMonth, setCurrentMonth] = useState("");
-
-    useEffect(() => {
-      setCurrentMonth(
-        new Intl.DateTimeFormat("pt-BR", {
-          month: "long",
-          year: "numeric",
-        }).format(new Date())
-      );
-    }, []);
+  const percentageValue = (
+    value: number | null | undefined,
+  ): string =>
+    value === null || value === undefined
+      ? "—"
+      : formatPercentage(value);
 
   return (
     <DashboardLayout>
@@ -184,14 +238,15 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Período e atualização */}
+      {/* Período */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold capitalize text-[#342d27]">
-            {currentMonth}
+            {currentMonth || "Período atual"}
           </p>
+
           <p className="mt-1 text-xs text-stone-400">
-            Indicadores financeiros do mês atual
+            Indicadores financeiros e comerciais do mês atual
           </p>
         </div>
 
@@ -202,20 +257,26 @@ export default function HomePage() {
           className="inline-flex items-center gap-2 rounded-xl border border-[#e9dfcc] bg-white px-4 py-2.5 text-xs font-semibold text-[#927448] transition-colors hover:bg-[#f7f2e9] disabled:opacity-50"
         >
           <RefreshCw
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${
+              loading ? "animate-spin" : ""
+            }`}
           />
           Atualizar
         </button>
       </div>
 
-      {/* Erro */}
-      {error && (
+      {/* Erros */}
+      {(overviewError || salesError) && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
         >
           <p className="text-sm text-red-700">
-            Não foi possível carregar os indicadores financeiros.
+            {overviewError && salesError
+              ? "Não foi possível carregar os relatórios."
+              : overviewError
+                ? "Não foi possível carregar o resumo financeiro."
+                : "Não foi possível carregar os indicadores de vendas."}
           </p>
 
           <button
@@ -228,73 +289,222 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Indicadores */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Faturamento previsto"
-          value={financialValue(overview?.expectedRevenue)}
-          icon={Wallet}
-          description="Valor total das vendas do mês"
-          loading={loading}
-        />
+      {/* Indicadores financeiros */}
+      <section>
+        <div className="mb-5">
+          <h2 className="text-base font-semibold text-[#342d27]">
+            Visão financeira
+          </h2>
 
-        <MetricCard
-          title="Resultado realizado"
-          value={financialValue(overview?.realizedProfit)}
-          icon={TrendingUp}
-          description="Recebimentos menos pagamentos"
-          loading={loading}
-        />
+          <p className="mt-1 text-xs text-stone-400">
+            Principais indicadores financeiros do mês
+          </p>
+        </div>
 
-        <MetricCard
-          title="Receita recebida"
-          value={financialValue(overview?.receivedRevenue)}
-          icon={ShoppingBag}
-          description="Valores recebidos das vendas"
-          loading={loading}
-        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Faturamento previsto"
+            value={financialValue(overview?.expectedRevenue)}
+            icon={Wallet}
+            description="Valor total das vendas do mês"
+            loading={loading}
+          />
 
-        <MetricCard
-          title="Despesas previstas"
-          value={financialValue(overview?.expectedExpenses)}
-          icon={CircleDollarSign}
-          description="Compromissos financeiros do mês"
-          loading={loading}
-        />
-      </div>
+          <MetricCard
+            title="Resultado realizado"
+            value={financialValue(overview?.realizedProfit)}
+            icon={TrendingUp}
+            description="Recebimentos menos pagamentos"
+            loading={loading}
+          />
 
-      {/* Gráfico + resumo */}
+          <MetricCard
+            title="Receita recebida"
+            value={financialValue(overview?.receivedRevenue)}
+            icon={ShoppingBag}
+            description="Valores recebidos das vendas"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Despesas previstas"
+            value={financialValue(overview?.expectedExpenses)}
+            icon={CircleDollarSign}
+            description="Compromissos financeiros do mês"
+            loading={loading}
+          />
+        </div>
+      </section>
+
+      {/* Indicadores de vendas */}
+      <section>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">
+              Desempenho de vendas
+            </h2>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Indicadores comerciais do mês atual
+            </p>
+          </div>
+
+          <Link
+            href="/relatorios"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[#a98a58] hover:text-[#927448]"
+          >
+            Ver relatórios
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Quantidade de vendas"
+            value={numberValue(salesReport?.totalSales)}
+            icon={ReceiptText}
+            description="Total de vendas registradas no mês"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Faturamento total"
+            value={financialValue(salesReport?.totalRevenue)}
+            icon={ShoppingBag}
+            description="Valor total das vendas realizadas"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Ticket médio"
+            value={financialValue(salesReport?.averageTicket)}
+            icon={Wallet}
+            description="Valor médio por venda"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Percentual recebido"
+            value={percentageValue(salesReport?.receivedPercentage)}
+            icon={Percent}
+            description="Percentual do faturamento já recebido"
+            loading={loading}
+          />
+        </div>
+      </section>
+
+      {/* Vendas e resumo financeiro */}
       <div className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
-        {/* Gráfico */}
+        {/* Detalhamento das vendas */}
         <section className="min-w-0 rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold">
-                Evolução do faturamento
+              <h2 className="text-base font-semibold text-[#342d27]">
+                Recebimentos de vendas
               </h2>
 
               <p className="mt-1 text-xs text-stone-400">
-                Comparativo dos últimos 6 meses
+                Situação dos recebimentos das vendas do mês
               </p>
             </div>
 
-            <span className="rounded-lg border border-[#ece6dc] px-3 py-2 text-xs text-stone-500">
-              Últimos 6 meses
-            </span>
+            <div className="rounded-xl bg-[#f7f2e9] p-3">
+              <ChartNoAxesCombined className="h-5 w-5 text-[#a98a58]" />
+            </div>
           </div>
 
-          <div className="flex min-h-[230px] flex-col items-center justify-center gap-4 text-center">
-            <div className="rounded-2xl bg-[#f7f2e9] p-4">
-              <ChartNoAxesCombined className="h-7 w-7 text-[#a98a58]" />
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl bg-[#faf8f5] p-5">
+              <div className="flex items-center gap-2">
+                <ArrowUpRight className="h-4 w-4 text-emerald-600" />
+                <p className="text-sm text-stone-500">
+                  Total recebido
+                </p>
+              </div>
+
+              {loading ? (
+                <div className="mt-4 h-8 w-32 animate-pulse rounded bg-stone-200" />
+              ) : (
+                <p className="mt-4 text-2xl font-bold text-emerald-700">
+                  {financialValue(salesReport?.receivedAmount)}
+                </p>
+              )}
+
+              <p className="mt-3 text-xs text-stone-400">
+                Valores já recebidos das vendas
+              </p>
             </div>
 
-            
+            <div className="rounded-xl bg-[#faf8f5] p-5">
+              <div className="flex items-center gap-2">
+                <ArrowDownRight className="h-4 w-4 text-amber-600" />
+                <p className="text-sm text-stone-500">
+                  Total a receber
+                </p>
+              </div>
 
+              {loading ? (
+                <div className="mt-4 h-8 w-32 animate-pulse rounded bg-stone-200" />
+              ) : (
+                <p className="mt-4 text-2xl font-bold text-[#342d27]">
+                  {financialValue(salesReport?.outstandingAmount)}
+                </p>
+              )}
+
+              <p className="mt-3 text-xs text-stone-400">
+                Valores pendentes de recebimento
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-7">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-stone-500">
+                Progresso de recebimento
+              </span>
+
+              <span className="text-xs font-semibold text-[#342d27]">
+                {percentageValue(salesReport?.receivedPercentage)}
+              </span>
+            </div>
+
+            <div
+              role="progressbar"
+              aria-label="Percentual recebido das vendas"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={
+                salesReport
+                  ? Math.min(
+                      100,
+                      Math.max(0, salesReport.receivedPercentage),
+                    )
+                  : undefined
+              }
+              className="h-3 overflow-hidden rounded-full bg-[#f0ece5]"
+            >
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                style={{
+                  width: `${
+                    salesReport
+                      ? Math.min(
+                          100,
+                          Math.max(0, salesReport.receivedPercentage),
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-end">
             <Link
               href="/relatorios"
               className="inline-flex items-center gap-2 text-sm font-semibold text-[#a98a58] hover:text-[#927448]"
             >
-              Ver relatórios
+              Ver relatório completo
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -303,7 +513,7 @@ export default function HomePage() {
         {/* Resumo financeiro */}
         <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
           <div>
-            <h2 className="text-base font-semibold">
+            <h2 className="text-base font-semibold text-[#342d27]">
               Resumo financeiro
             </h2>
 
@@ -315,7 +525,7 @@ export default function HomePage() {
           <div className="mt-8 space-y-6">
             <FinancialRow
               title="Receita prevista"
-              value={overview?.expectedRevenue ?? 0}
+              value={overview?.expectedRevenue ?? null}
               icon={ArrowUpRight}
               color="green"
               loading={loading}
@@ -323,7 +533,7 @@ export default function HomePage() {
 
             <FinancialRow
               title="Receita recebida"
-              value={overview?.receivedRevenue ?? 0}
+              value={overview?.receivedRevenue ?? null}
               icon={Wallet}
               color="green"
               loading={loading}
@@ -331,7 +541,7 @@ export default function HomePage() {
 
             <FinancialRow
               title="Valores a receber"
-              value={overview?.outstandingRevenue ?? 0}
+              value={overview?.outstandingRevenue ?? null}
               icon={ShoppingBag}
               color="amber"
               loading={loading}
@@ -340,7 +550,7 @@ export default function HomePage() {
             <div className="border-t border-[#ece6dc] pt-5">
               <FinancialRow
                 title="Despesas previstas"
-                value={overview?.expectedExpenses ?? 0}
+                value={overview?.expectedExpenses ?? null}
                 icon={Package}
                 color="amber"
                 loading={loading}
@@ -349,7 +559,7 @@ export default function HomePage() {
 
             <FinancialRow
               title="Despesas pagas"
-              value={overview?.paidExpenses ?? 0}
+              value={overview?.paidExpenses ?? null}
               icon={ArrowDownRight}
               color="red"
               loading={loading}
@@ -357,7 +567,7 @@ export default function HomePage() {
 
             <FinancialRow
               title="Valores a pagar"
-              value={overview?.outstandingExpenses ?? 0}
+              value={overview?.outstandingExpenses ?? null}
               icon={CircleDollarSign}
               color="red"
               loading={loading}
@@ -365,7 +575,7 @@ export default function HomePage() {
 
             <div className="border-t border-[#ece6dc] pt-5">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold">
+                <span className="text-sm font-semibold text-[#342d27]">
                   Resultado realizado
                 </span>
 
@@ -374,8 +584,8 @@ export default function HomePage() {
                 ) : (
                   <span
                     className={`text-xl font-bold ${
-                      hasData
-                        ? (overview?.realizedProfit ?? 0) >= 0
+                      overview
+                        ? overview.realizedProfit >= 0
                           ? "text-emerald-700"
                           : "text-red-600"
                         : "text-stone-400"
@@ -406,11 +616,41 @@ export default function HomePage() {
         </section>
       </div>
 
+      {/* Evolução histórica */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">
+              Evolução do faturamento
+            </h2>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Comparativo dos últimos 6 meses
+            </p>
+          </div>
+
+          <span className="rounded-lg border border-[#ece6dc] px-3 py-2 text-xs text-stone-500">
+            Últimos 6 meses
+          </span>
+        </div>
+
+        <div className="flex min-h-[160px] flex-col items-center justify-center gap-4 text-center">
+          <div className="rounded-2xl bg-[#f7f2e9] p-4">
+            <ChartNoAxesCombined className="h-7 w-7 text-[#a98a58]" />
+          </div>
+
+          <p className="text-sm text-stone-500">
+            A evolução mensal estará disponível após a integração
+            do relatório histórico.
+          </p>
+        </div>
+      </section>
+
       {/* Vendas recentes */}
       <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-7">
           <div>
-            <h2 className="text-base font-semibold">
+            <h2 className="text-base font-semibold text-[#342d27]">
               Vendas recentes
             </h2>
 
@@ -434,8 +674,6 @@ export default function HomePage() {
           <p className="text-sm font-semibold text-[#342d27]">
             Consulte as vendas registradas
           </p>
-
-          
 
           <Link
             href="/vendas"

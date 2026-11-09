@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDownRight,
@@ -11,15 +12,21 @@ import {
   ChartNoAxesCombined,
   CircleDollarSign,
   Clock3,
+  Percent,
+  ReceiptText,
   RefreshCw,
+  ShoppingBag,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import type { ElementType } from "react";
+
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
 import {
   getReportOverview,
+  getSalesReport,
   type ReportOverview,
+  type SalesReport,
 } from "../../src/services/reportService";
 
 type PeriodPreset =
@@ -54,7 +61,11 @@ function dateToString(date: Date): string {
 
 function getPresetPeriod(preset: PeriodPreset): Period {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const start = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const end = new Date(start);
 
   switch (preset) {
@@ -70,7 +81,7 @@ function getPresetPeriod(preset: PeriodPreset): Period {
       break;
 
     case "previousMonth":
-      start.setMonth(start.getMonth(), 1);
+      start.setDate(1);
       start.setMonth(start.getMonth() - 1);
       end.setDate(0);
       break;
@@ -94,9 +105,19 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+
+function formatPercentage(value: number): string {
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
+}
+
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
-
   return `${day}/${month}/${year}`;
 }
 
@@ -107,6 +128,7 @@ function MetricCard({
   icon: Icon,
   loading,
   positive,
+  format = "currency",
 }: {
   title: string;
   value: number | null;
@@ -114,11 +136,23 @@ function MetricCard({
   icon: ElementType;
   loading: boolean;
   positive?: boolean;
+  format?: "currency" | "number" | "percentage";
 }) {
+  const formattedValue =
+    value === null
+      ? "—"
+      : format === "number"
+        ? formatNumber(value)
+        : format === "percentage"
+          ? formatPercentage(value)
+          : formatCurrency(value);
+
   return (
     <div className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-stone-500">{title}</p>
+        <p className="text-sm font-medium text-stone-500">
+          {title}
+        </p>
 
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f7f2e9]">
           <Icon className="h-5 w-5 text-[#a98a58]" />
@@ -130,18 +164,20 @@ function MetricCard({
       ) : (
         <p
           className={`mt-5 text-2xl font-bold tracking-tight sm:text-[28px] ${
-            positive === undefined || value === null
-              ? "text-[#342d27]"
-              : value >= 0
+            positive && value !== null
+              ? value >= 0
                 ? "text-emerald-700"
                 : "text-red-600"
+              : "text-[#342d27]"
           }`}
         >
-          {value === null ? "—" : formatCurrency(value)}
+          {formattedValue}
         </p>
       )}
 
-      <p className="mt-3 text-xs text-stone-400">{description}</p>
+      <p className="mt-3 text-xs text-stone-400">
+        {description}
+      </p>
     </div>
   );
 }
@@ -165,7 +201,9 @@ function SummaryRow({
     >
       <span
         className={`text-sm ${
-          highlight ? "font-semibold text-[#342d27]" : "text-stone-500"
+          highlight
+            ? "font-semibold text-[#342d27]"
+            : "text-stone-500"
         }`}
       >
         {label}
@@ -174,15 +212,7 @@ function SummaryRow({
       {loading ? (
         <div className="h-5 w-24 animate-pulse rounded bg-stone-100" />
       ) : (
-        <span
-          className={`shrink-0 text-sm font-semibold ${
-            highlight && value !== null
-              ? value >= 0
-                ? "text-emerald-700"
-                : "text-red-600"
-              : "text-[#342d27]"
-          }`}
-        >
+        <span className="shrink-0 text-sm font-semibold text-[#342d27]">
           {value === null ? "—" : formatCurrency(value)}
         </span>
       )}
@@ -191,14 +221,23 @@ function SummaryRow({
 }
 
 export default function ReportsPage() {
-  const [preset, setPreset] = useState<PeriodPreset>("currentMonth");
+  const [preset, setPreset] =
+    useState<PeriodPreset>("currentMonth");
+
   const [period, setPeriod] = useState<Period>({
     startDate: "",
     endDate: "",
   });
-  const [overview, setOverview] = useState<ReportOverview | null>(null);
+
+  const [overview, setOverview] =
+    useState<ReportOverview | null>(null);
+
+  const [salesReport, setSalesReport] =
+    useState<SalesReport | null>(null);
+
+  const [overviewError, setOverviewError] = useState(false);
+  const [salesError, setSalesError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -207,47 +246,99 @@ export default function ReportsPage() {
     setInitialized(true);
   }, []);
 
-  const loadOverview = useCallback(async (selectedPeriod: Period) => {
-    setLoading(true);
-    setError(false);
-
-    try {
-      const data = await getReportOverview(selectedPeriod);
-      setOverview(data);
-    } catch {
-      setOverview(null);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const validPeriod =
+    Boolean(period.startDate && period.endDate) &&
+    period.startDate <= period.endDate;
 
   useEffect(() => {
-    if (!initialized || !period.startDate || !period.endDate) return;
+    if (!initialized) return;
 
-    if (period.startDate > period.endDate) {
-      setOverview(null);
-      setLoading(false);
+    if (
+      !period.startDate ||
+      !period.endDate ||
+      period.startDate > period.endDate
+    ) {
       return;
     }
 
-    void loadOverview(period);
-  }, [initialized, period, reloadKey, loadOverview]);
+    let active = true;
+
+    async function loadReports() {
+      const results = await Promise.allSettled([
+        getReportOverview(period),
+        getSalesReport(period),
+      ]);
+
+      if (!active) return;
+
+      const [overviewResult, salesResult] = results;
+
+      if (overviewResult.status === "fulfilled") {
+        setOverview(overviewResult.value);
+        setOverviewError(false);
+      } else {
+        setOverview(null);
+        setOverviewError(true);
+      }
+
+      if (salesResult.status === "fulfilled") {
+        setSalesReport(salesResult.value);
+        setSalesError(false);
+      } else {
+        setSalesReport(null);
+        setSalesError(true);
+      }
+
+      setLoading(false);
+    }
+
+    void loadReports();
+
+    return () => {
+      active = false;
+    };
+  }, [initialized, period, reloadKey]);
 
   const changePreset = (value: PeriodPreset) => {
     setPreset(value);
 
     if (value !== "custom") {
+      setLoading(true);
       setPeriod(getPresetPeriod(value));
     }
   };
 
-  const validPeriod =
-    Boolean(period.startDate && period.endDate) &&
-    period.startDate <= period.endDate;
+  const changeCustomPeriod = (nextPeriod: Period) => {
+    setPeriod(nextPeriod);
+    setLoading(true);
 
-  const metricValue = (value: number | undefined): number | null =>
+    if (
+      !nextPeriod.startDate ||
+      !nextPeriod.endDate ||
+      nextPeriod.startDate > nextPeriod.endDate
+    ) {
+      setOverview(null);
+      setSalesReport(null);
+      setLoading(false);
+    }
+  };
+
+  const refresh = () => {
+    if (!validPeriod || loading) return;
+
+    setLoading(true);
+    setReloadKey((value) => value + 1);
+  };
+
+  const overviewValue = (
+    value: number | undefined,
+  ): number | null =>
     overview === null ? null : (value ?? null);
+
+  const salesValue = (
+    value: number | undefined,
+  ): number | null =>
+    salesReport === null ? null : (value ?? null);
 
   return (
     <DashboardLayout>
@@ -263,7 +354,8 @@ export default function ReportsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-stone-500">
-            Acompanhe receitas, despesas e resultados financeiros do negócio.
+            Acompanhe receitas, despesas, vendas e resultados
+            financeiros do negócio.
           </p>
         </div>
 
@@ -297,12 +389,14 @@ export default function ReportsPage() {
 
           <button
             type="button"
-            onClick={() => setReloadKey((value) => value + 1)}
+            onClick={refresh}
             disabled={loading || !validPeriod}
             className="inline-flex items-center gap-2 rounded-xl border border-[#e9dfcc] px-4 py-2.5 text-sm font-semibold text-[#927448] transition-colors hover:bg-[#f7f2e9] disabled:opacity-50"
           >
             <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${
+                loading ? "animate-spin" : ""
+              }`}
             />
             Atualizar
           </button>
@@ -336,10 +430,10 @@ export default function ReportsPage() {
                 type="date"
                 value={period.startDate}
                 onChange={(event) =>
-                  setPeriod((current) => ({
-                    ...current,
+                  changeCustomPeriod({
+                    ...period,
                     startDate: event.target.value,
-                  }))
+                  })
                 }
                 className="w-full rounded-xl border border-[#e9dfcc] bg-white px-4 py-3 text-sm outline-none focus:border-[#a98a58]"
               />
@@ -354,10 +448,10 @@ export default function ReportsPage() {
                 type="date"
                 value={period.endDate}
                 onChange={(event) =>
-                  setPeriod((current) => ({
-                    ...current,
+                  changeCustomPeriod({
+                    ...period,
                     endDate: event.target.value,
-                  }))
+                  })
                 }
                 className="w-full rounded-xl border border-[#e9dfcc] bg-white px-4 py-3 text-sm outline-none focus:border-[#a98a58]"
               />
@@ -367,31 +461,46 @@ export default function ReportsPage() {
 
         {!validPeriod && initialized && (
           <p className="mt-4 text-sm text-red-600">
-            Informe um período válido. A data inicial não pode ser posterior à
-            data final.
+            Informe um período válido. A data inicial não pode ser
+            posterior à data final.
           </p>
         )}
 
         {validPeriod && (
           <div className="mt-5 flex items-center gap-2 text-xs text-stone-500">
             <Clock3 className="h-4 w-4 text-[#a98a58]" />
-            {formatDate(period.startDate)} até {formatDate(period.endDate)}
+            {formatDate(period.startDate)} até{" "}
+            {formatDate(period.endDate)}
           </div>
         )}
       </section>
 
-      {/* Erro */}
-      {error && (
+      {/* Erros */}
+      {(overviewError || salesError) && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4"
         >
-          Não foi possível carregar o relatório financeiro. Tente atualizar a
-          consulta.
+          <p className="text-sm text-red-700">
+            {overviewError && salesError
+              ? "Não foi possível carregar os relatórios."
+              : overviewError
+                ? "Não foi possível carregar o relatório financeiro."
+                : "Não foi possível carregar o relatório de vendas."}
+          </p>
+
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading || !validPeriod}
+            className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-50"
+          >
+            Tentar novamente
+          </button>
         </div>
       )}
 
-      {/* Indicadores principais */}
+      {/* Indicadores financeiros */}
       <section>
         <div className="mb-5">
           <h2 className="text-lg font-semibold text-[#342d27]">
@@ -406,7 +515,7 @@ export default function ReportsPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Receita prevista"
-            value={metricValue(overview?.expectedRevenue)}
+            value={overviewValue(overview?.expectedRevenue)}
             description="Total de vendas registradas"
             icon={Wallet}
             loading={loading}
@@ -414,7 +523,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Receita recebida"
-            value={metricValue(overview?.receivedRevenue)}
+            value={overviewValue(overview?.receivedRevenue)}
             description="Valor já recebido das vendas"
             icon={ArrowUpRight}
             loading={loading}
@@ -422,7 +531,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Valores a receber"
-            value={metricValue(overview?.outstandingRevenue)}
+            value={overviewValue(overview?.outstandingRevenue)}
             description="Saldo pendente das vendas"
             icon={Clock3}
             loading={loading}
@@ -430,7 +539,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Despesas previstas"
-            value={metricValue(overview?.expectedExpenses)}
+            value={overviewValue(overview?.expectedExpenses)}
             description="Obrigações financeiras consideradas"
             icon={CircleDollarSign}
             loading={loading}
@@ -438,7 +547,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Despesas pagas"
-            value={metricValue(overview?.paidExpenses)}
+            value={overviewValue(overview?.paidExpenses)}
             description="Pagamentos registrados"
             icon={ArrowDownRight}
             loading={loading}
@@ -446,7 +555,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Valores a pagar"
-            value={metricValue(overview?.outstandingExpenses)}
+            value={overviewValue(overview?.outstandingExpenses)}
             description="Saldo pendente das despesas"
             icon={Clock3}
             loading={loading}
@@ -454,7 +563,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Resultado previsto"
-            value={metricValue(overview?.expectedProfit)}
+            value={overviewValue(overview?.expectedProfit)}
             description="Receita prevista menos despesas previstas"
             icon={TrendingUp}
             loading={loading}
@@ -463,7 +572,7 @@ export default function ReportsPage() {
 
           <MetricCard
             title="Resultado realizado"
-            value={metricValue(overview?.realizedProfit)}
+            value={overviewValue(overview?.realizedProfit)}
             description="Recebimentos menos pagamentos"
             icon={ChartNoAxesCombined}
             loading={loading}
@@ -472,7 +581,157 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Resumos */}
+      {/* Indicadores de vendas */}
+      <section>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-[#342d27]">
+            Indicadores de vendas
+          </h2>
+
+          <p className="mt-1 text-xs text-stone-400">
+            Desempenho comercial no período selecionado.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Quantidade de vendas"
+            value={salesValue(salesReport?.totalSales)}
+            description="Total de vendas registradas"
+            icon={ReceiptText}
+            loading={loading}
+            format="number"
+          />
+
+          <MetricCard
+            title="Faturamento total"
+            value={salesValue(salesReport?.totalRevenue)}
+            description="Valor total das vendas"
+            icon={ShoppingBag}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Ticket médio"
+            value={salesValue(salesReport?.averageTicket)}
+            description="Valor médio por venda"
+            icon={Wallet}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Percentual recebido"
+            value={salesValue(salesReport?.receivedPercentage)}
+            description="Percentual do faturamento recebido"
+            icon={Percent}
+            loading={loading}
+            format="percentage"
+          />
+        </div>
+      </section>
+
+      {/* Detalhamento de vendas */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-[#f7f2e9] p-2.5">
+            <ShoppingBag className="h-5 w-5 text-[#a98a58]" />
+          </div>
+
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">
+              Recebimentos de vendas
+            </h2>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Valores recebidos e pendentes das vendas registradas.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-[#faf8f5] p-5">
+            <p className="text-sm text-stone-500">
+              Total recebido
+            </p>
+
+            <p className="mt-3 text-2xl font-bold text-emerald-700">
+              {loading
+                ? "Carregando..."
+                : salesReport
+                  ? formatCurrency(salesReport.receivedAmount)
+                  : "—"}
+            </p>
+
+            <p className="mt-2 text-xs text-stone-400">
+              Valor já recebido das vendas
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#faf8f5] p-5">
+            <p className="text-sm text-stone-500">
+              Total a receber
+            </p>
+
+            <p className="mt-3 text-2xl font-bold text-[#342d27]">
+              {loading
+                ? "Carregando..."
+                : salesReport
+                  ? formatCurrency(salesReport.outstandingAmount)
+                  : "—"}
+            </p>
+
+            <p className="mt-2 text-xs text-stone-400">
+              Saldo pendente das vendas
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-7">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-xs font-medium text-stone-500">
+              Progresso de recebimento
+            </span>
+
+            <span className="text-xs font-semibold text-[#342d27]">
+              {salesReport
+                ? formatPercentage(salesReport.receivedPercentage)
+                : "—"}
+            </span>
+          </div>
+
+          <div
+            role="progressbar"
+            aria-label="Percentual recebido das vendas"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={
+              salesReport
+                ? Math.min(
+                    100,
+                    Math.max(0, salesReport.receivedPercentage),
+                  )
+                : undefined
+            }
+            className="h-3 overflow-hidden rounded-full bg-[#f0ece5]"
+          >
+            <div
+              className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+              style={{
+                width: `${
+                  salesReport
+                    ? Math.min(
+                        100,
+                        Math.max(0, salesReport.receivedPercentage),
+                      )
+                    : 0
+                }%`,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Resumos financeiros */}
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
           <div className="flex items-center gap-3">
@@ -484,6 +743,7 @@ export default function ReportsPage() {
               <h2 className="text-base font-semibold text-[#342d27]">
                 Receitas
               </h2>
+
               <p className="mt-1 text-xs text-stone-400">
                 Situação financeira das vendas
               </p>
@@ -493,17 +753,19 @@ export default function ReportsPage() {
           <div className="mt-8 space-y-6">
             <SummaryRow
               label="Faturamento previsto"
-              value={metricValue(overview?.expectedRevenue)}
+              value={overviewValue(overview?.expectedRevenue)}
               loading={loading}
             />
+
             <SummaryRow
               label="Total recebido"
-              value={metricValue(overview?.receivedRevenue)}
+              value={overviewValue(overview?.receivedRevenue)}
               loading={loading}
             />
+
             <SummaryRow
               label="Pendente de recebimento"
-              value={metricValue(overview?.outstandingRevenue)}
+              value={overviewValue(overview?.outstandingRevenue)}
               loading={loading}
               highlight
             />
@@ -520,6 +782,7 @@ export default function ReportsPage() {
               <h2 className="text-base font-semibold text-[#342d27]">
                 Despesas
               </h2>
+
               <p className="mt-1 text-xs text-stone-400">
                 Situação dos compromissos financeiros
               </p>
@@ -529,17 +792,19 @@ export default function ReportsPage() {
           <div className="mt-8 space-y-6">
             <SummaryRow
               label="Total previsto"
-              value={metricValue(overview?.expectedExpenses)}
+              value={overviewValue(overview?.expectedExpenses)}
               loading={loading}
             />
+
             <SummaryRow
               label="Total pago"
-              value={metricValue(overview?.paidExpenses)}
+              value={overviewValue(overview?.paidExpenses)}
               loading={loading}
             />
+
             <SummaryRow
               label="Pendente de pagamento"
-              value={metricValue(overview?.outstandingExpenses)}
+              value={overviewValue(overview?.outstandingExpenses)}
               loading={loading}
               highlight
             />
@@ -558,6 +823,7 @@ export default function ReportsPage() {
             <h2 className="text-base font-semibold text-[#342d27]">
               Resultado financeiro
             </h2>
+
             <p className="mt-1 text-xs text-stone-400">
               Comparação entre os valores previstos e realizados
             </p>
@@ -566,26 +832,43 @@ export default function ReportsPage() {
 
         <div className="mt-7 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">Resultado previsto</p>
-            <p className="mt-3 text-2xl font-bold text-[#342d27]">
+            <p className="text-sm text-stone-500">
+              Resultado previsto
+            </p>
+
+            <p
+              className={`mt-3 text-2xl font-bold ${
+                overview
+                  ? overview.expectedProfit >= 0
+                    ? "text-emerald-700"
+                    : "text-red-600"
+                  : "text-[#342d27]"
+              }`}
+            >
               {loading
                 ? "Carregando..."
                 : overview
                   ? formatCurrency(overview.expectedProfit)
                   : "—"}
             </p>
+
             <p className="mt-2 text-xs text-stone-400">
               Receita prevista − despesas previstas
             </p>
           </div>
 
           <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">Resultado realizado</p>
+            <p className="text-sm text-stone-500">
+              Resultado realizado
+            </p>
+
             <p
               className={`mt-3 text-2xl font-bold ${
-                overview && overview.realizedProfit < 0
-                  ? "text-red-600"
-                  : "text-emerald-700"
+                overview
+                  ? overview.realizedProfit >= 0
+                    ? "text-emerald-700"
+                    : "text-red-600"
+                  : "text-[#342d27]"
               }`}
             >
               {loading
@@ -594,6 +877,7 @@ export default function ReportsPage() {
                   ? formatCurrency(overview.realizedProfit)
                   : "—"}
             </p>
+
             <p className="mt-2 text-xs text-stone-400">
               Receita recebida − despesas pagas
             </p>
@@ -612,8 +896,9 @@ export default function ReportsPage() {
             <h2 className="text-base font-semibold text-[#342d27]">
               Análises detalhadas
             </h2>
+
             <p className="mt-1 text-xs text-stone-400">
-              Recursos que serão disponibilizados nas próximas integrações.
+              Recursos previstos para as próximas integrações.
             </p>
           </div>
         </div>
@@ -622,15 +907,18 @@ export default function ReportsPage() {
           {[
             {
               title: "Evolução financeira",
-              description: "Gráficos de receitas e despesas ao longo do tempo.",
+              description:
+                "Gráficos de receitas e despesas ao longo do tempo.",
             },
             {
               title: "Movimentações",
-              description: "Histórico detalhado de entradas e saídas.",
+              description:
+                "Histórico detalhado de entradas e saídas.",
             },
             {
               title: "Exportações",
-              description: "Relatórios em PDF e Excel.",
+              description:
+                "Relatórios em PDF e Excel.",
             },
           ].map((item) => (
             <div
@@ -640,9 +928,11 @@ export default function ReportsPage() {
               <p className="text-sm font-semibold text-[#342d27]">
                 {item.title}
               </p>
+
               <p className="mt-2 text-xs leading-5 text-stone-500">
                 {item.description}
               </p>
+
               <span className="mt-4 inline-block text-xs font-medium text-[#a98a58]">
                 Em desenvolvimento
               </span>
@@ -651,11 +941,12 @@ export default function ReportsPage() {
         </div>
       </section>
 
+      {/* Rodapé */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#e9e2d8] pt-6">
         <p className="max-w-2xl text-xs leading-5 text-stone-400">
-          Os indicadores consideram o estado atual das operações registradas no
-          período. O fluxo de caixa por data efetiva de pagamento será
-          disponibilizado em relatório específico.
+          Os indicadores consideram o estado atual das operações
+          registradas no período. O fluxo de caixa por data efetiva
+          de pagamento será disponibilizado em relatório específico.
         </p>
 
         <Link
