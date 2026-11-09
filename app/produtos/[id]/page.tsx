@@ -8,6 +8,7 @@ import { ArrowLeft, Package, Pencil, Plus , Eye } from "lucide-react";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
 import { getColor } from "../../../src/utils/colors";
 import { api } from "../../../src/lib/api";
+import Loading from "@/src/components/layout/Loading";
 
 type Category = "GOURMET" | "AGUAS" | "GARRAFAS" | "GLOSS" | "BOLSAS" | "NECESSAIRES" | "LENCOS" | "PAPELARIA" | "CAIXAS" | "KITS";
 type PricingType = "FIXED" | "TIERED" | "QUOTE";
@@ -578,7 +579,7 @@ function ProductDetailsContent() {
     </div>
 
     <div className="mt-7 overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
-      {loading ? <p className="px-6 py-16 text-center text-sm text-stone-500">Carregando dados do produto...</p>
+      {loading ? <Loading />
       : error ? <div className="px-6 py-16 text-center"><p className="text-sm font-medium text-red-700">{error}</p>
           <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="mt-4 text-sm font-semibold text-[#a98a58]">Tentar novamente</button>
         </div>

@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../../src/lib/api";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type PaymentMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "BANK_SLIP";
 type Customer = { id: string; name: string; email?: string | null; cpf?: string | null; rg?: string | null; phone?: string | null };
@@ -254,7 +255,7 @@ useEffect(() => {
     } finally { setSaving(false); }
   }
 
-  if (loading || !form || !original) return <DashboardLayout><div className="mx-auto flex min-h-[50vh] max-w-5xl items-center justify-center gap-3 text-[#81766b]">{loading ? <><Loader2 size={20} className="animate-spin" /> Carregando venda...</> : <p role="alert">{error ?? "Venda não encontrada."}</p>}</div></DashboardLayout>;
+  if (loading || !form || !original) return <DashboardLayout><div className="mx-auto flex min-h-[50vh] max-w-5xl items-center justify-center gap-3 text-[#81766b]">{loading ? <Loading /> : <p role="alert">{error ?? "Venda não encontrada."}</p>}</div></DashboardLayout>;
 
   return <DashboardLayout><form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6 pb-10">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

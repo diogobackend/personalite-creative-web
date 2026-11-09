@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 type PaymentMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "BANK_SLIP";
 type Customer = { id: string; name: string; email?: string | null; cpf?: string | null; rg?: string | null; phone?: string | null };
 type PriceTier = { minimumQuantity: number; unitPrice: number };
@@ -287,8 +288,9 @@ export default function NewSalePage() {
       <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6 pb-10">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-medium text-[#927448] transition hover:text-[#725934]"><ArrowLeft size={16} />Voltar para vendas</Link>
+            <Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-medium text-[#927448] transition hover:text-[#725934]"><ArrowLeft size={16} />Vendas</Link>
           </div>
+          {loading && <Loading size={40} />}
           <button type="submit" disabled={saving || loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}{saving ? "Salvando..." : "Registrar"}
           </button>
@@ -298,7 +300,7 @@ export default function NewSalePage() {
               items={customers}
               value={form.customerId}
               onChange={(id) => updateForm("customerId", id)}
-              placeholder={loading ? "Carregando clientes..." : "Digite o nome do cliente..."}
+              placeholder={loading ? "Carregando clientes, aguarde..." : "Digite o nome do cliente..."}
               getSearchText={(customer) => customer.name}
               renderOption={(customer) => customerLabel(customer)}
             />
@@ -318,7 +320,7 @@ export default function NewSalePage() {
                 items={products}
                 value={item.productId}
                 onChange={(productId) => updateItem(item.key, { productId, color: "", size: "", material: "", brand: "", model: "" })}
-                placeholder={loading ? "Carregando produtos..." : "Nome ou código comercial..."}
+                placeholder={loading ? "Carregando produtos, aguarde..." : "Nome ou código comercial..."}
                 getSearchText={(entry) => `${entry.name} ${entry.commercialCode ?? ""}`}
                 renderOption={(entry) => (
                   <span>

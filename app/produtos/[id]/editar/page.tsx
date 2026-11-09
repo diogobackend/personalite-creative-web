@@ -9,6 +9,7 @@ import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import DashboardLayout from "../../../../src/components/layout/DashboardLayout";
 import { api } from "../../../../src/lib/api";
 import { getColor } from "../../../../src/utils/colors";
+import Loading from "@/src/components/layout/Loading";
 
 type Price = {
   id?: string;
@@ -737,9 +738,7 @@ function EditProductContent() {
 
 
         {loading ? (
-          <p className="text-sm text-stone-500">
-            Carregando produto...
-          </p>
+          <Loading />
         ) : !original ? (
           <p className="text-sm text-red-700">
             {error ?? "Produto não encontrado."}

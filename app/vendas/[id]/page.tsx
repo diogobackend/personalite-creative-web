@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api } from "../../../src/lib/api";
 import DashboardLayout from "../../../src/components/layout/DashboardLayout";
+import Loading from "@/src/components/layout/Loading";
 
 type SaleItem = {
   id: string;
@@ -290,7 +291,7 @@ function SaleDetailsContent() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#faf8f5]">
-        <p className="text-sm text-[#81766b]">Carregando venda...</p>
+        <Loading />
       </div>
     );
   }
