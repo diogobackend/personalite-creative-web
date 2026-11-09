@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ElementType } from "react";
+import type { ElementType, ReactNode } from "react";
 import {
   ArrowDownRight,
   ArrowLeft,
@@ -22,13 +22,18 @@ import {
 } from "lucide-react";
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
+import Loading from "../../app/../src/components/layout/Loading";
+
 import {
   getReportOverview,
   getSalesReport,
   getExpensesReport,
+  getTransactionsReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
+  type ReportTransactions,
+  type ReportTransaction,
 } from "../../src/services/reportService";
 
 type PeriodPreset =
@@ -43,6 +48,8 @@ type Period = {
   startDate: string;
   endDate: string;
 };
+
+type ValueFormat = "currency" | "number" | "percentage";
 
 const PRESETS: { label: string; value: PeriodPreset }[] = [
   { label: "Hoje", value: "today" },
@@ -63,19 +70,14 @@ function dateToString(date: Date): string {
 
 function getPresetPeriod(preset: PeriodPreset): Period {
   const today = new Date();
-
   const start = new Date(
     today.getFullYear(),
     today.getMonth(),
     today.getDate()
   );
-
   const end = new Date(start);
 
   switch (preset) {
-    case "today":
-      break;
-
     case "last7":
       start.setDate(start.getDate() - 6);
       break;
@@ -102,27 +104,48 @@ function getPresetPeriod(preset: PeriodPreset): Period {
   };
 }
 
-function formatCurrency(value: number): string {
+function formatValue(
+  value: number | null | undefined,
+  format: ValueFormat = "currency"
+): string {
+  if (value == null) return "—";
+
+  if (format === "number") {
+    return new Intl.NumberFormat("pt-BR").format(value);
+  }
+
+  if (format === "percentage") {
+    return `${new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)}%`;
+  }
+
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
   }).format(value);
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("pt-BR").format(value);
-}
-
-function formatPercentage(value: number): string {
-  return `${new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)}%`;
-}
-
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function Value({
+  value,
+  loading,
+  format = "currency",
+}: {
+  value: number | null | undefined;
+  loading: boolean;
+  format?: ValueFormat;
+}) {
+  return loading ? (
+    <Loading size={30} />
+  ) : (
+    <>{formatValue(value, format)}</>
+  );
 }
 
 function MetricCard({
@@ -131,25 +154,23 @@ function MetricCard({
   description,
   icon: Icon,
   loading,
-  positive,
+  positive = false,
   format = "currency",
 }: {
   title: string;
-  value: number | null;
+  value: number | null | undefined;
   description: string;
   icon: ElementType;
   loading: boolean;
   positive?: boolean;
-  format?: "currency" | "number" | "percentage";
+  format?: ValueFormat;
 }) {
-  const formattedValue =
-    value === null
-      ? "—"
-      : format === "number"
-        ? formatNumber(value)
-        : format === "percentage"
-          ? formatPercentage(value)
-          : formatCurrency(value);
+  const valueColor =
+    positive && value != null
+      ? value >= 0
+        ? "text-emerald-700"
+        : "text-red-600"
+      : "text-[#342d27]";
 
   return (
     <div className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
@@ -163,26 +184,42 @@ function MetricCard({
         </div>
       </div>
 
-      {loading ? (
-        <div className="mt-5 h-9 w-36 animate-pulse rounded-lg bg-stone-100" />
-      ) : (
-        <p
-          className={`mt-5 text-2xl font-bold tracking-tight sm:text-[28px] ${
-            positive && value !== null
-              ? value >= 0
-                ? "text-emerald-700"
-                : "text-red-600"
-              : "text-[#342d27]"
-          }`}
-        >
-          {formattedValue}
-        </p>
-      )}
+      <div
+        className={`mt-5 min-h-9 text-2xl font-bold tracking-tight sm:text-[28px] ${valueColor}`}
+      >
+        <Value value={value} loading={loading} format={format} />
+      </div>
 
       <p className="mt-3 text-xs text-stone-400">
         {description}
       </p>
     </div>
+  );
+}
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold text-[#342d27]">
+          {title}
+        </h2>
+
+        <p className="mt-1 text-xs text-stone-400">
+          {description}
+        </p>
+      </div>
+
+      {children}
+    </section>
   );
 }
 
@@ -193,7 +230,7 @@ function SummaryRow({
   highlight = false,
 }: {
   label: string;
-  value: number | null;
+  value: number | null | undefined;
   loading: boolean;
   highlight?: boolean;
 }) {
@@ -213,13 +250,9 @@ function SummaryRow({
         {label}
       </span>
 
-      {loading ? (
-        <div className="h-5 w-24 animate-pulse rounded bg-stone-100" />
-      ) : (
-        <span className="shrink-0 text-sm font-semibold text-[#342d27]">
-          {value === null ? "—" : formatCurrency(value)}
-        </span>
-      )}
+      <span className="shrink-0 text-sm font-semibold text-[#342d27]">
+        <Value value={value} loading={loading} />
+      </span>
     </div>
   );
 }
@@ -228,15 +261,15 @@ function PaymentProgress({
   title,
   percentage,
   loading,
-  color = "emerald",
+  color,
 }: {
   title: string;
-  percentage: number | null;
+  percentage: number | null | undefined;
   loading: boolean;
-  color?: "emerald" | "red";
+  color: "green" | "red";
 }) {
   const progress =
-    percentage === null
+    percentage == null
       ? 0
       : Math.min(100, Math.max(0, percentage));
 
@@ -248,11 +281,11 @@ function PaymentProgress({
         </span>
 
         <span className="text-xs font-semibold text-[#342d27]">
-          {loading
-            ? "Carregando..."
-            : percentage === null
-              ? "—"
-              : formatPercentage(percentage)}
+          <Value
+            value={percentage}
+            loading={loading}
+            format="percentage"
+          />
         </span>
       </div>
 
@@ -262,17 +295,65 @@ function PaymentProgress({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={
-          loading || percentage === null ? undefined : progress
+          loading || percentage == null ? undefined : progress
         }
         className="h-3 overflow-hidden rounded-full bg-[#f0ece5]"
       >
         <div
           className={`h-full rounded-full transition-all duration-500 ${
-            color === "emerald" ? "bg-emerald-600" : "bg-red-500"
+            color === "green" ? "bg-emerald-600" : "bg-red-500"
           }`}
           style={{ width: `${loading ? 0 : progress}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+function TransactionRow({
+  transaction,
+}: {
+  transaction: ReportTransaction;
+}) {
+  const isEntry = transaction.type === "ENTRY";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f0ece5] py-4 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className={`rounded-xl p-2.5 ${
+            isEntry
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-red-50 text-red-500"
+          }`}
+        >
+          {isEntry ? (
+            <ArrowUpRight className="h-5 w-5" />
+          ) : (
+            <ArrowDownRight className="h-5 w-5" />
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-[#342d27]">
+            {transaction.description}
+          </p>
+
+          <p className="mt-1 text-xs text-stone-400">
+            {isEntry ? "Entrada" : "Saída"} ·{" "}
+            {formatDate(transaction.referenceDate)}
+          </p>
+        </div>
+      </div>
+
+      <span
+        className={`text-sm font-bold ${
+          isEntry ? "text-emerald-700" : "text-red-600"
+        }`}
+      >
+        {isEntry ? "+" : "−"}
+        {formatValue(transaction.amount)}
+      </span>
     </div>
   );
 }
@@ -295,13 +376,17 @@ export default function ReportsPage() {
   const [expensesReport, setExpensesReport] =
     useState<ExpensesReport | null>(null);
 
-  const [overviewError, setOverviewError] = useState(false);
-  const [salesError, setSalesError] = useState(false);
-  const [expensesError, setExpensesError] = useState(false);
+  const [transactionsReport, setTransactionsReport] =
+    useState<ReportTransactions | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [overviewError, setOverviewError] = useState(false);
+  const [salesError, setSalesError] = useState(false);
+  const [expensesError, setExpensesError] = useState(false);
+  const [transactionsError, setTransactionsError] = useState(false);
 
   useEffect(() => {
     setPeriod(getPresetPeriod("currentMonth"));
@@ -322,6 +407,7 @@ export default function ReportsPage() {
         getReportOverview(period),
         getSalesReport(period),
         getExpensesReport(period),
+        getTransactionsReport(period),
       ]);
 
       if (!active) return;
@@ -330,6 +416,7 @@ export default function ReportsPage() {
         overviewResult,
         salesResult,
         expensesResult,
+        transactionsResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -356,6 +443,14 @@ export default function ReportsPage() {
         setExpensesError(true);
       }
 
+      if (transactionsResult.status === "fulfilled") {
+        setTransactionsReport(transactionsResult.value);
+        setTransactionsError(false);
+      } else {
+        setTransactionsReport(null);
+        setTransactionsError(true);
+      }
+
       setLoading(false);
     }
 
@@ -364,7 +459,13 @@ export default function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [initialized, period, reloadKey, validPeriod]);
+  }, [
+    initialized,
+    period.startDate,
+    period.endDate,
+    reloadKey,
+    validPeriod,
+  ]);
 
   const changePreset = (value: PeriodPreset) => {
     setPreset(value);
@@ -377,22 +478,23 @@ export default function ReportsPage() {
 
   const changeCustomPeriod = (nextPeriod: Period) => {
     setPeriod(nextPeriod);
-    setLoading(true);
 
-    if (
-      !nextPeriod.startDate ||
-      !nextPeriod.endDate ||
-      nextPeriod.startDate > nextPeriod.endDate
-    ) {
+    const valid =
+      Boolean(nextPeriod.startDate && nextPeriod.endDate) &&
+      nextPeriod.startDate <= nextPeriod.endDate;
+
+    setLoading(valid);
+
+    if (!valid) {
       setOverview(null);
       setSalesReport(null);
       setExpensesReport(null);
+      setTransactionsReport(null);
 
       setOverviewError(false);
       setSalesError(false);
       setExpensesError(false);
-
-      setLoading(false);
+      setTransactionsError(false);
     }
   };
 
@@ -400,32 +502,22 @@ export default function ReportsPage() {
     if (!validPeriod || loading) return;
 
     setLoading(true);
+    setOverviewError(false);
+    setSalesError(false);
+    setExpensesError(false);
+    setTransactionsError(false);
     setReloadKey((value) => value + 1);
   };
 
-  const overviewValue = (
-    value: number | undefined
-  ): number | null =>
-    overview === null ? null : (value ?? null);
-
-  const salesValue = (
-    value: number | undefined
-  ): number | null =>
-    salesReport === null ? null : (value ?? null);
-
-  const expensesValue = (
-    value: number | undefined
-  ): number | null =>
-    expensesReport === null ? null : (value ?? null);
-
-  const hasErrors =
-    overviewError || salesError || expensesError;
-
   const failedReports = [
-    overviewError ? "financeiro" : null,
+    overviewError ? "resumo financeiro" : null,
     salesError ? "vendas" : null,
     expensesError ? "despesas" : null,
+    transactionsError ? "movimentações" : null,
   ].filter(Boolean);
+
+  const recentTransactions =
+    transactionsReport?.transactions.slice(0, 10) ?? [];
 
   return (
     <DashboardLayout>
@@ -441,8 +533,8 @@ export default function ReportsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-stone-500">
-            Acompanhe receitas, despesas, vendas e resultados
-            financeiros do negócio.
+            Entenda quanto o negócio vendeu, recebeu, gastou
+            e teve de resultado.
           </p>
         </div>
 
@@ -469,7 +561,7 @@ export default function ReportsPage() {
               </h2>
 
               <p className="mt-1 text-xs text-stone-400">
-                Selecione o intervalo para consultar os indicadores.
+                Escolha as datas dos relatórios.
               </p>
             </div>
           </div>
@@ -548,8 +640,8 @@ export default function ReportsPage() {
 
         {!validPeriod && initialized && (
           <p className="mt-4 text-sm text-red-600">
-            Informe um período válido. A data inicial não pode ser
-            posterior à data final.
+            Informe um período válido. A data inicial não pode
+            ser posterior à data final.
           </p>
         )}
 
@@ -563,14 +655,13 @@ export default function ReportsPage() {
       </section>
 
       {/* Erros */}
-      {hasErrors && (
+      {failedReports.length > 0 && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4"
         >
           <p className="text-sm text-red-700">
-            Não foi possível carregar:{" "}
-            {failedReports.join(", ")}.
+            Não foi possível carregar: {failedReports.join(", ")}.
           </p>
 
           <button
@@ -584,331 +675,150 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Indicadores financeiros */}
-      <section>
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-[#342d27]">
-            Indicadores financeiros
-          </h2>
-
-          <p className="mt-1 text-xs text-stone-400">
-            Valores das operações registradas no período selecionado.
-          </p>
-        </div>
-
+      {/* Visão geral */}
+      <Section
+        title="Resultado do negócio"
+        description="Os principais valores financeiros do período"
+      >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            title="Receita prevista"
-            value={overviewValue(overview?.expectedRevenue)}
-            description="Total de vendas registradas"
+            title="Faturamento bruto"
+            value={overview?.expectedRevenue}
+            description="Valor total das vendas, mesmo as ainda não recebidas"
+            icon={ShoppingBag}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Dinheiro recebido"
+            value={overview?.receivedRevenue}
+            description="Valor das vendas que já foi recebido"
             icon={Wallet}
             loading={loading}
           />
 
           <MetricCard
-            title="Receita recebida"
-            value={overviewValue(overview?.receivedRevenue)}
-            description="Valor já recebido das vendas"
-            icon={ArrowUpRight}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Valores a receber"
-            value={overviewValue(overview?.outstandingRevenue)}
-            description="Saldo pendente das vendas"
-            icon={Clock3}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Despesas previstas"
-            value={overviewValue(overview?.expectedExpenses)}
-            description="Obrigações financeiras consideradas"
-            icon={CircleDollarSign}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Despesas pagas"
-            value={overviewValue(overview?.paidExpenses)}
-            description="Pagamentos registrados"
-            icon={ArrowDownRight}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Valores a pagar"
-            value={overviewValue(overview?.outstandingExpenses)}
-            description="Saldo pendente das despesas"
-            icon={Clock3}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Resultado previsto"
-            value={overviewValue(overview?.expectedProfit)}
-            description="Receita prevista menos despesas previstas"
+            title="Lucro líquido previsto"
+            value={overview?.expectedProfit}
+            description="Total vendido menos as despesas previstas"
             icon={TrendingUp}
             loading={loading}
             positive
           />
 
           <MetricCard
-            title="Resultado realizado"
-            value={overviewValue(overview?.realizedProfit)}
-            description="Recebimentos menos pagamentos"
+            title="Lucro líquido realizado"
+            value={overview?.realizedProfit}
+            description="Dinheiro recebido menos despesas pagas"
             icon={ChartNoAxesCombined}
             loading={loading}
             positive
           />
         </div>
-      </section>
+      </Section>
 
-      {/* Indicadores de vendas */}
-      <section>
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-[#342d27]">
-            Indicadores de vendas
-          </h2>
-
-          <p className="mt-1 text-xs text-stone-400">
-            Desempenho comercial no período selecionado.
-          </p>
-        </div>
-
+      {/* Vendas */}
+      <Section
+        title="Desempenho das vendas"
+        description="Quantidade de vendas e valores ainda a receber"
+      >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            title="Quantidade de vendas"
-            value={salesValue(salesReport?.totalSales)}
-            description="Total de vendas registradas"
+            title="Vendas realizadas"
+            value={salesReport?.totalSales}
+            description="Quantidade de vendas registradas"
             icon={ReceiptText}
             loading={loading}
             format="number"
           />
 
           <MetricCard
-            title="Faturamento total"
-            value={salesValue(salesReport?.totalRevenue)}
-            description="Valor total das vendas"
-            icon={ShoppingBag}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Ticket médio"
-            value={salesValue(salesReport?.averageTicket)}
-            description="Valor médio por venda"
+            title="Valor médio por venda"
+            value={salesReport?.averageTicket}
+            description="Quanto cada venda representa, em média"
             icon={Wallet}
             loading={loading}
           />
 
           <MetricCard
-            title="Percentual recebido"
-            value={salesValue(salesReport?.receivedPercentage)}
-            description="Percentual do faturamento recebido"
-            icon={Percent}
-            loading={loading}
-            format="percentage"
-          />
-        </div>
-      </section>
-
-      {/* Recebimentos de vendas */}
-      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-[#f7f2e9] p-2.5">
-            <ShoppingBag className="h-5 w-5 text-[#a98a58]" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-semibold text-[#342d27]">
-              Recebimentos de vendas
-            </h2>
-
-            <p className="mt-1 text-xs text-stone-400">
-              Valores recebidos e pendentes das vendas registradas.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-7 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Total recebido
-            </p>
-
-            <p className="mt-3 text-2xl font-bold text-emerald-700">
-              {loading
-                ? "Carregando..."
-                : salesReport
-                  ? formatCurrency(salesReport.receivedAmount)
-                  : "—"}
-            </p>
-
-            <p className="mt-2 text-xs text-stone-400">
-              Valor já recebido das vendas
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Total a receber
-            </p>
-
-            <p className="mt-3 text-2xl font-bold text-[#342d27]">
-              {loading
-                ? "Carregando..."
-                : salesReport
-                  ? formatCurrency(salesReport.outstandingAmount)
-                  : "—"}
-            </p>
-
-            <p className="mt-2 text-xs text-stone-400">
-              Saldo pendente das vendas
-            </p>
-          </div>
-        </div>
-
-        <PaymentProgress
-          title="Progresso de recebimento"
-          percentage={salesValue(salesReport?.receivedPercentage)}
-          loading={loading}
-          color="emerald"
-        />
-      </section>
-
-      {/* Indicadores de despesas */}
-      <section>
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-[#342d27]">
-            Indicadores de despesas
-          </h2>
-
-          <p className="mt-1 text-xs text-stone-400">
-            Controle dos compromissos financeiros registrados no período.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Quantidade de despesas"
-            value={expensesValue(expensesReport?.totalExpenses)}
-            description="Total de despesas registradas"
-            icon={ReceiptText}
-            loading={loading}
-            format="number"
-          />
-
-          <MetricCard
-            title="Despesas previstas"
-            value={expensesValue(expensesReport?.expectedAmount)}
-            description="Valor total das despesas"
-            icon={CircleDollarSign}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Despesas pagas"
-            value={expensesValue(expensesReport?.paidAmount)}
-            description="Valor já pago"
-            icon={ArrowDownRight}
-            loading={loading}
-          />
-
-          <MetricCard
-            title="Valores pendentes"
-            value={expensesValue(expensesReport?.outstandingAmount)}
-            description="Saldo restante para pagamento"
+            title="Falta receber"
+            value={salesReport?.outstandingAmount}
+            description="Valor que os clientes ainda precisam pagar"
             icon={Clock3}
             loading={loading}
           />
 
           <MetricCard
-            title="Despesas pendentes"
-            value={expensesValue(expensesReport?.pendingExpenses)}
-            description="Despesas com pagamento incompleto"
+            title="Percentual já recebido"
+            value={salesReport?.receivedPercentage}
+            description="Parcela do faturamento já recebida"
+            icon={Percent}
+            loading={loading}
+            format="percentage"
+          />
+        </div>
+      </Section>
+
+      {/* Despesas */}
+      <Section
+        title="Controle de despesas"
+        description="Gastos registrados e pagamentos pendentes"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <MetricCard
+            title="Despesas registradas"
+            value={expensesReport?.totalExpenses}
+            description="Quantidade de despesas lançadas"
             icon={ReceiptText}
             loading={loading}
             format="number"
           />
 
           <MetricCard
-            title="Percentual pago"
-            value={expensesValue(expensesReport?.paidPercentage)}
-            description="Percentual das despesas já quitado"
+            title="Total de despesas"
+            value={expensesReport?.expectedAmount}
+            description="Soma de todos os gastos previstos"
+            icon={CircleDollarSign}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Despesas já pagas"
+            value={expensesReport?.paidAmount}
+            description="Valor efetivamente pago"
+            icon={ArrowDownRight}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Falta pagar"
+            value={expensesReport?.outstandingAmount}
+            description="Valor que ainda precisa ser pago"
+            icon={Clock3}
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Contas em aberto"
+            value={expensesReport?.pendingExpenses}
+            description="Despesas ainda não quitadas"
+            icon={ReceiptText}
+            loading={loading}
+            format="number"
+          />
+
+          <MetricCard
+            title="Percentual já pago"
+            value={expensesReport?.paidPercentage}
+            description="Parcela das despesas que já foi paga"
             icon={Percent}
             loading={loading}
             format="percentage"
           />
         </div>
-      </section>
+      </Section>
 
-      {/* Pagamentos de despesas */}
-      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-red-50 p-2.5">
-            <ArrowDownRight className="h-5 w-5 text-red-500" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-semibold text-[#342d27]">
-              Pagamentos de despesas
-            </h2>
-
-            <p className="mt-1 text-xs text-stone-400">
-              Acompanhamento dos valores pagos e pendentes.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-7 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Total pago
-            </p>
-
-            <p className="mt-3 text-2xl font-bold text-emerald-700">
-              {loading
-                ? "Carregando..."
-                : expensesReport
-                  ? formatCurrency(expensesReport.paidAmount)
-                  : "—"}
-            </p>
-
-            <p className="mt-2 text-xs text-stone-400">
-              Valor já pago das despesas
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Total a pagar
-            </p>
-
-            <p className="mt-3 text-2xl font-bold text-[#342d27]">
-              {loading
-                ? "Carregando..."
-                : expensesReport
-                  ? formatCurrency(expensesReport.outstandingAmount)
-                  : "—"}
-            </p>
-
-            <p className="mt-2 text-xs text-stone-400">
-              Saldo pendente das despesas
-            </p>
-          </div>
-        </div>
-
-        <PaymentProgress
-          title="Progresso de pagamento"
-          percentage={expensesValue(expensesReport?.paidPercentage)}
-          loading={loading}
-          color="red"
-        />
-      </section>
-
-      {/* Resumos financeiros */}
+      {/* Recebimentos e pagamentos */}
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
           <div className="flex items-center gap-3">
@@ -918,35 +828,42 @@ export default function ReportsPage() {
 
             <div>
               <h2 className="text-base font-semibold text-[#342d27]">
-                Receitas
+                Recebimentos das vendas
               </h2>
 
               <p className="mt-1 text-xs text-stone-400">
-                Situação financeira das vendas
+                Dinheiro recebido e valores pendentes
               </p>
             </div>
           </div>
 
           <div className="mt-8 space-y-6">
             <SummaryRow
-              label="Faturamento previsto"
-              value={overviewValue(overview?.expectedRevenue)}
+              label="Total vendido"
+              value={salesReport?.totalRevenue}
               loading={loading}
             />
 
             <SummaryRow
-              label="Total recebido"
-              value={overviewValue(overview?.receivedRevenue)}
+              label="Já recebido"
+              value={salesReport?.receivedAmount}
               loading={loading}
             />
 
             <SummaryRow
-              label="Pendente de recebimento"
-              value={overviewValue(overview?.outstandingRevenue)}
+              label="Ainda a receber"
+              value={salesReport?.outstandingAmount}
               loading={loading}
               highlight
             />
           </div>
+
+          <PaymentProgress
+            title="Quanto das vendas já foi recebido"
+            percentage={salesReport?.receivedPercentage}
+            loading={loading}
+            color="green"
+          />
         </section>
 
         <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
@@ -957,112 +874,173 @@ export default function ReportsPage() {
 
             <div>
               <h2 className="text-base font-semibold text-[#342d27]">
-                Despesas
+                Pagamentos das despesas
               </h2>
 
               <p className="mt-1 text-xs text-stone-400">
-                Situação dos compromissos financeiros
+                Dinheiro pago e contas pendentes
               </p>
             </div>
           </div>
 
           <div className="mt-8 space-y-6">
             <SummaryRow
-              label="Total previsto"
-              value={expensesValue(expensesReport?.expectedAmount)}
+              label="Total de despesas"
+              value={expensesReport?.expectedAmount}
               loading={loading}
             />
 
             <SummaryRow
-              label="Total pago"
-              value={expensesValue(expensesReport?.paidAmount)}
+              label="Já pago"
+              value={expensesReport?.paidAmount}
               loading={loading}
             />
 
             <SummaryRow
-              label="Pendente de pagamento"
-              value={expensesValue(expensesReport?.outstandingAmount)}
+              label="Ainda a pagar"
+              value={expensesReport?.outstandingAmount}
               loading={loading}
               highlight
             />
           </div>
+
+          <PaymentProgress
+            title="Quanto das despesas já foi pago"
+            percentage={expensesReport?.paidPercentage}
+            loading={loading}
+            color="red"
+          />
         </section>
       </div>
 
-      {/* Resultado financeiro */}
-      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-[#f7f2e9] p-2.5">
-            <TrendingUp className="h-5 w-5 text-[#a98a58]" />
-          </div>
+      {/* Movimentações */}
+      <Section
+        title="Movimentações financeiras"
+        description="Entradas e saídas vinculadas às operações do período"
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            title="Entradas"
+            value={transactionsReport?.totalEntries}
+            description="Valores recebidos das vendas"
+            icon={ArrowUpRight}
+            loading={loading}
+          />
 
-          <div>
-            <h2 className="text-base font-semibold text-[#342d27]">
-              Resultado financeiro
-            </h2>
+          <MetricCard
+            title="Saídas"
+            value={transactionsReport?.totalExits}
+            description="Valores pagos em despesas"
+            icon={ArrowDownRight}
+            loading={loading}
+          />
 
-            <p className="mt-1 text-xs text-stone-400">
-              Comparação entre os valores previstos e realizados
-            </p>
-          </div>
+          <MetricCard
+            title="Saldo das movimentações"
+            value={transactionsReport?.balance}
+            description="Entradas menos saídas"
+            icon={Wallet}
+            loading={loading}
+            positive
+          />
         </div>
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+        <div className="mt-5 rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-4">
+            <h3 className="text-base font-semibold text-[#342d27]">
+              Últimas movimentações do período
+            </h3>
+
+            <p className="mt-1 text-xs text-stone-400">
+              Até 10 registros, ordenados pela data de referência
+            </p>
+          </div>
+
+          {loading ? (
+            <Loading />
+          ) : transactionsReport === null ? (
+            <p className="py-8 text-center text-sm text-stone-400">
+              Não foi possível consultar as movimentações.
+            </p>
+          ) : recentTransactions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-stone-400">
+              Nenhuma movimentação encontrada neste período.
+            </p>
+          ) : (
+            <div>
+              {recentTransactions.map((transaction) => (
+                <TransactionRow
+                  key={`${transaction.type}-${transaction.id}`}
+                  transaction={transaction}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </Section>
+
+      {/* Detalhamento */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+        <div className="mb-7">
+          <h2 className="text-base font-semibold text-[#342d27]">
+            Como o resultado é calculado?
+          </h2>
+
+          <p className="mt-1 text-xs text-stone-400">
+            Comparação entre o que está previsto e o que já foi recebido ou pago
+          </p>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
           <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Resultado previsto
+            <p className="text-sm font-semibold text-[#342d27]">
+              Lucro líquido previsto
             </p>
 
-            <p
-              className={`mt-3 text-2xl font-bold ${
-                overview
-                  ? overview.expectedProfit >= 0
-                    ? "text-emerald-700"
-                    : "text-red-600"
-                  : "text-[#342d27]"
+            <div
+              className={`mt-4 text-2xl font-bold ${
+                overview && overview.expectedProfit < 0
+                  ? "text-red-600"
+                  : "text-emerald-700"
               }`}
             >
-              {loading
-                ? "Carregando..."
-                : overview
-                  ? formatCurrency(overview.expectedProfit)
-                  : "—"}
-            </p>
+              <Value
+                value={overview?.expectedProfit}
+                loading={loading}
+              />
+            </div>
 
-            <p className="mt-2 text-xs text-stone-400">
-              Receita prevista − despesas previstas
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              Faturamento total menos todas as despesas previstas.
             </p>
           </div>
 
           <div className="rounded-xl bg-[#faf8f5] p-5">
-            <p className="text-sm text-stone-500">
-              Resultado realizado
+            <p className="text-sm font-semibold text-[#342d27]">
+              Lucro líquido realizado
             </p>
 
-            <p
-              className={`mt-3 text-2xl font-bold ${
-                overview
-                  ? overview.realizedProfit >= 0
-                    ? "text-emerald-700"
-                    : "text-red-600"
-                  : "text-[#342d27]"
+            <div
+              className={`mt-4 text-2xl font-bold ${
+                overview && overview.realizedProfit < 0
+                  ? "text-red-600"
+                  : "text-emerald-700"
               }`}
             >
-              {loading
-                ? "Carregando..."
-                : overview
-                  ? formatCurrency(overview.realizedProfit)
-                  : "—"}
-            </p>
+              <Value
+                value={overview?.realizedProfit}
+                loading={loading}
+              />
+            </div>
 
-            <p className="mt-2 text-xs text-stone-400">
-              Receita recebida − despesas pagas
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              Valores recebidos das vendas menos despesas já pagas.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Próximos relatórios */}
+      {/* Futuras integrações */}
       <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-[#f7f2e9] p-2.5">
@@ -1071,11 +1049,11 @@ export default function ReportsPage() {
 
           <div>
             <h2 className="text-base font-semibold text-[#342d27]">
-              Análises detalhadas
+              Próximas análises
             </h2>
 
             <p className="mt-1 text-xs text-stone-400">
-              Recursos previstos para as próximas integrações.
+              Funcionalidades que serão integradas posteriormente
             </p>
           </div>
         </div>
@@ -1083,19 +1061,19 @@ export default function ReportsPage() {
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           {[
             {
-              title: "Evolução financeira",
+              title: "Fluxo de caixa",
               description:
-                "Gráficos de receitas e despesas ao longo do tempo.",
+                "Acompanhamento das entradas e saídas por data efetiva de pagamento.",
             },
             {
-              title: "Movimentações",
+              title: "Comparação de períodos",
               description:
-                "Histórico detalhado de entradas e saídas.",
+                "Evolução das vendas, despesas e resultados entre meses.",
             },
             {
-              title: "Exportações",
+              title: "Exportação",
               description:
-                "Relatórios em PDF e Excel.",
+                "Geração de relatórios em PDF e Excel.",
             },
           ].map((item) => (
             <div
@@ -1121,9 +1099,10 @@ export default function ReportsPage() {
       {/* Rodapé */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#e9e2d8] pt-6">
         <p className="max-w-2xl text-xs leading-5 text-stone-400">
-          Os indicadores consideram o estado atual das operações
-          registradas no período. O fluxo de caixa por data efetiva
-          de pagamento será disponibilizado em relatório específico.
+          Os indicadores consideram os valores atuais das operações
+          registradas no período. As movimentações utilizam datas
+          de referência, não necessariamente as datas em que os
+          pagamentos ocorreram.
         </p>
 
         <Link

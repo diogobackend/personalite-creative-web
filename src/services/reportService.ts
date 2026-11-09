@@ -1,3 +1,4 @@
+
 import { api } from "../lib/api";
 
 export interface ReportPeriod {
@@ -32,6 +33,23 @@ export interface ExpensesReport {
   outstandingAmount: number;
   paidPercentage: number;
   pendingExpenses: number;
+}
+
+export type ReportTransactionType = "ENTRY" | "EXIT";
+
+export interface ReportTransaction {
+  id: string;
+  type: ReportTransactionType;
+  description: string;
+  referenceDate: string;
+  amount: number;
+}
+
+export interface ReportTransactions {
+  totalEntries: number;
+  totalExits: number;
+  balance: number;
+  transactions: ReportTransaction[];
 }
 
 export async function getReportOverview(
@@ -75,6 +93,24 @@ export async function getExpensesReport(
       Authorization: `Bearer ${token}`,
     },
   });
+
+  return response.data;
+}
+
+export async function getTransactionsReport(
+  period: ReportPeriod = {}
+): Promise<ReportTransactions> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<ReportTransactions>(
+    "/reports/transactions",
+    {
+      params: period,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   return response.data;
 }
