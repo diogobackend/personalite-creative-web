@@ -40,7 +40,7 @@ type ExpenseAllocationType =
   | "SPECIFIC_PRODUCT"
   | "CATEGORY_PRODUCTS";
 
-type ExpenseStatus = "PENDING" | "PAID" | "CANCELLED";
+type ExpenseStatus = "PENDING" | "PARTIALLY_PAID" | "PAID";
 
 type Product = {
   id: string;
@@ -63,6 +63,7 @@ type ExpenseForm = {
   name: string;
   description: string;
   value: string;
+  paidAmount: string;
   category: ExpenseCategory;
   categoryId: string;
   allocationType: ExpenseAllocationType;
@@ -91,9 +92,9 @@ const STATUS_OPTIONS: {
   value: ExpenseStatus;
   label: string;
 }[] = [
-  { value: "PAID", label: "Paga" },
-  { value: "PENDING", label: "Pendente" },
-  { value: "CANCELLED", label: "Cancelada" },
+  { value: "PAID", label: "100% Paga" },
+  { value: "PARTIALLY_PAID", label: "Parcialmente paga" },
+  { value: "PENDING", label: "Pendente (0% paga)" },
 ];
 
 const ALLOCATION_OPTIONS: {
@@ -302,6 +303,7 @@ export default function NewExpensePage() {
     name: "",
     description: "",
     value: "",
+    paidAmount: "",
     category: "",
     categoryId: "",
     allocationType: "GENERAL",
@@ -537,6 +539,22 @@ export default function NewExpensePage() {
       return;
     }
 
+    const paidAmount =
+      form.status === "PAID"
+        ? expenseValue
+        : form.status === "PENDING"
+          ? 0
+          : parseMoney(form.paidAmount);
+
+    if (
+      !Number.isFinite(paidAmount) ||
+      (form.status === "PARTIALLY_PAID" &&
+        (paidAmount <= 0 || paidAmount >= expenseValue))
+    ) {
+      toast.error("O valor pago inicialmente deve ser maior que zero e menor que o valor total da despesa.");
+      return;
+    }
+
     const expenseDate = form.isToday
       ? getToday()
       : form.expenseDate;
@@ -643,6 +661,7 @@ export default function NewExpensePage() {
       name: form.name.trim(),
       description: form.description.trim() || null,
       value: expenseValue,
+      paidAmount,
       category: form.category,
       categoryId: form.categoryId,
       inventoryId: form.category === STOCK_CATEGORY_NAME ? form.inventoryId : null,
@@ -1164,6 +1183,23 @@ export default function NewExpensePage() {
           </span>
         </div>
       )}
+    </div>
+  )}
+
+  {form.status === "PARTIALLY_PAID" && (
+    <div className="mt-5">
+      <Field label="Valor pago inicialmente (R$)" required>
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          value={form.paidAmount}
+          onChange={(event) => updateForm("paidAmount", event.target.value)}
+          placeholder="0,00"
+          className={INPUT_CLASS}
+        />
+      </Field>
     </div>
   )}
 </section>

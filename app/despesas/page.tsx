@@ -11,6 +11,10 @@ import {
 import Link from "next/link";
 import axios from "axios";
 import {
+  Ban,
+  CircleDollarSign,
+  Clock3,
+  Wallet,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -37,7 +41,7 @@ type ExpenseAllocationType =
   | "SPECIFIC_PRODUCT"
   | "CATEGORY_PRODUCTS";
 
-type ExpenseStatus = "PENDING" | "PAID" | "CANCELLED";
+type ExpenseStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
 
 type ExpenseProduct = {
   productId: string;
@@ -49,6 +53,7 @@ type Expense = {
   name: string;
   description: string | null;
   value: number;
+  paidAmount: number;
   category: ExpenseCategory;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
@@ -124,9 +129,10 @@ const ALLOCATION_OPTIONS: {
 ];
 
 const STATUS_OPTIONS: { value: ExpenseStatus; label: string }[] = [
-  { value: "PENDING", label: "Pendente" },
-  { value: "PAID", label: "Paga" },
-  { value: "CANCELLED", label: "Cancelada" },
+  { value: "PARTIALLY_PAID", label: "Parcialmente pago" },
+  { value: "PAID", label: "100% pago" },
+  { value: "PENDING", label: "0% pago" },
+  { value: "CANCELLED", label: "Cancelado" },
 ];
 
 const SORT_OPTIONS = [
@@ -201,6 +207,7 @@ const allocationLabel = (
 function StatusLabel({ status }: { status: ExpenseStatus }) {
   const styles: Record<ExpenseStatus, string> = {
     PENDING: "bg-amber-50 text-amber-700 ring-amber-200",
+    PARTIALLY_PAID: "bg-blue-50 text-blue-700 ring-blue-200",
     PAID: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     CANCELLED: "bg-red-50 text-red-700 ring-red-200",
   };
@@ -280,6 +287,7 @@ export default function ExpensesPageScreen() {
   const [sortDirection, setSortDirection] = useState("DESC");
 
   const [result, setResult] = useState<ExpensesPage | null>(null);
+  const [summary, setSummary] = useState({ total: 0, paid: 0, remaining: 0, cancelled: 0 });
   const [productCategories, setProductCategories] = useState<Record<string, string>>({});
   const [expenseCategories, setExpenseCategories] = useState<RegisteredCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -435,6 +443,52 @@ export default function ExpensesPageScreen() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadSummary = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        let currentPage = 0;
+        let totalPages = 1;
+        const totals = { total: 0, paid: 0, remaining: 0, cancelled: 0 };
+
+        while (currentPage < totalPages) {
+          const { data } = await api.get<ExpensesPage>("/expenses", {
+            params: { page: currentPage, size: 100 },
+            headers,
+            signal: controller.signal,
+          });
+
+          for (const expense of data.content) {
+            const value = Number(expense.value) || 0;
+            const paid = Number(expense.paidAmount) || 0;
+            if (expense.status === "CANCELLED") {
+              totals.cancelled += value;
+            } else {
+              totals.total += value;
+              totals.paid += paid;
+              totals.remaining += Math.max(0, value - paid);
+            }
+          }
+
+          totalPages = data.totalPages;
+          currentPage += 1;
+        }
+
+        if (!controller.signal.aborted) setSummary(totals);
+      } catch (error) {
+        if (!controller.signal.aborted && !axios.isCancel(error)) {
+          setSummary({ total: 0, paid: 0, remaining: 0, cancelled: 0 });
+        }
+      }
+    };
+
+    void loadSummary();
+    return () => controller.abort();
+  }, [reloadKey]);
+
   const totalElements = result?.totalElements ?? 0;
   const totalPages = result?.totalPages ?? 0;
   const currentPage = result?.page ?? page;
@@ -472,6 +526,23 @@ export default function ExpensesPageScreen() {
             <Plus size={18} />
             Cadastrar despesa
           </Link>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Valor total", value: summary.total, Icon: Wallet },
+            { label: "Total pago", value: summary.paid, Icon: CircleDollarSign },
+            { label: "Valor pendente", value: summary.remaining, Icon: Clock3 },
+            { label: "Despesas canceladas", value: summary.cancelled, Icon: Ban },
+          ].map(({ label, value, Icon }) => (
+            <div key={label} className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-[#81766b]">{label}</span>
+                <Icon size={19} className="text-[#a98a58]" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold text-[#342d27]">{formatCurrency(value)}</p>
+            </div>
+          ))}
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">

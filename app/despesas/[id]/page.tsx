@@ -35,7 +35,7 @@ type ExpenseAllocationType =
   | "SPECIFIC_PRODUCT"
   | "CATEGORY_PRODUCTS";
 
-type ExpenseStatus = "PENDING" | "PAID" | "CANCELLED";
+type ExpenseStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
 
 type ExpenseProduct = {
   productId: string;
@@ -47,6 +47,9 @@ type Expense = {
   name: string;
   description: string | null;
   value: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paidPercentage: number;
   category: ExpenseCategory;
   allocationType: ExpenseAllocationType;
   status: ExpenseStatus;
@@ -86,13 +89,15 @@ const ALLOCATION_LABELS: Record<ExpenseAllocationType, string> = {
 };
 
 const STATUS_LABELS: Record<ExpenseStatus, string> = {
-  PENDING: "Pendente",
-  PAID: "Pago",
+  PENDING: "0% pago",
+  PARTIALLY_PAID: "Parcialmente pago",
+  PAID: "100% pago",
   CANCELLED: "Cancelado",
 };
 
 const STATUS_STYLES: Record<ExpenseStatus, string> = {
   PENDING: "bg-amber-50 text-amber-700",
+  PARTIALLY_PAID: "bg-blue-50 text-blue-700",
   PAID: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
 };
@@ -351,10 +356,45 @@ function ExpenseDetailsContent() {
             <p className="text-xs font-medium uppercase tracking-wide text-[#927448]">
               Valor total
             </p>
-
             <p className="mt-2 text-3xl font-bold text-[#342d27]">
               {formatCurrency(expense.value)}
             </p>
+            {expense.status === "PARTIALLY_PAID" && (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-[#e4d8c7] bg-white/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#927448]">
+                    Valor já pago
+                  </p>
+                  <span className="text-sm font-semibold text-emerald-700">
+                    {Number(expense.paidPercentage).toFixed(2).replace(".", ",")}%
+                  </span>
+                </div>
+                <p className="mt-2 text-xl font-bold text-[#342d27]">
+                  {formatCurrency(expense.paidAmount)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-[#e4d8c7] bg-white/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#927448]">
+                    Valor restante
+                  </p>
+                  <span className="text-sm font-semibold text-amber-700">
+                    {(100 - Number(expense.paidPercentage)).toFixed(2).replace(".", ",")}%
+                  </span>
+                </div>
+                <p className="mt-2 text-xl font-bold text-[#342d27]">
+                  {formatCurrency(expense.remainingAmount)}
+                </p>
+              </div>
+            </div>
+            )}
+            {expense.status === "CANCELLED" && (
+              <p className="mt-3 text-sm text-red-700">
+                Despesa cancelada. Os valores pagos permanecem registrados.
+              </p>
+            )}
           </div>
         </div>
 

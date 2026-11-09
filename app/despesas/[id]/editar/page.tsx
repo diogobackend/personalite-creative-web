@@ -41,7 +41,7 @@ type ExpenseAllocationType =
   | "SPECIFIC_PRODUCT"
   | "CATEGORY_PRODUCTS";
 
-type ExpenseStatus = "PENDING" | "PAID" | "CANCELLED";
+type ExpenseStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
 
 type Product = {
   id: string;
@@ -91,9 +91,10 @@ const STATUS_OPTIONS: {
   value: ExpenseStatus;
   label: string;
 }[] = [
-  { value: "PAID", label: "Paga" },
-  { value: "PENDING", label: "Pendente" },
-  { value: "CANCELLED", label: "Cancelada" },
+  { value: "PENDING", label: "0% pago" },
+  { value: "PARTIALLY_PAID", label: "Parcialmente pago" },
+  { value: "PAID", label: "100% pago" },
+  { value: "CANCELLED", label: "Cancelado" },
 ];
 
 const ALLOCATION_OPTIONS: {
@@ -300,6 +301,9 @@ type ExpenseResponse = {
   name: string;
   description: string | null;
   value: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paidPercentage: number;
   category: ExpenseCategory;
   categoryId: string | null;
   allocationType: ExpenseAllocationType;
@@ -311,6 +315,7 @@ type ExpenseResponse = {
 };
 
 type UpdatePayload = {
+  paidAmount: number;
   name: string;
   description: string | null;
   value: number;
@@ -330,6 +335,8 @@ function EditExpenseContent() {
   const id = params.id;
   const [loadingExpense, setLoadingExpense] = useState(true);
   const [original, setOriginal] = useState<UpdatePayload | null>(null);
+  const [editRegistration, setEditRegistration] = useState(false);
+  const [paymentNow, setPaymentNow] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -393,6 +400,7 @@ function EditExpenseContent() {
           name: expense.name,
           description: expense.description,
           value: Number(expense.value),
+          paidAmount: Number(expense.paidAmount ?? 0),
           category: expense.category,
           categoryId: expense.categoryId,
           allocationType: expense.allocationType,
@@ -601,6 +609,69 @@ function EditExpenseContent() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!original) return;
+    if (original.status === "CANCELLED") {
+      toast.error("Não é permitido alterar uma despesa cancelada.");
+      return;
+    }
+
+    const totalValue = editRegistration ? expenseValue : original.value;
+    const currentPaid = original.status === "PAID" ? original.value : original.paidAmount;
+    let nextPaid = currentPaid;
+
+    {
+      if (form.status === "PARTIALLY_PAID") {
+        const increment = parseMoney(paymentNow);
+        if (!paymentNow.trim() || !Number.isFinite(increment) || increment <= 0) {
+          toast.error("Informe um valor pago agora maior que zero.");
+          return;
+        }
+        nextPaid = original.status === "PAID"
+          ? Math.round(increment * 100) / 100
+          : Math.round((currentPaid + increment) * 100) / 100;
+        if (nextPaid >= totalValue) {
+          toast.error("Para quitar a despesa, selecione 100% pago.");
+          return;
+        }
+      } else if (form.status === "PAID") {
+        nextPaid = totalValue;
+      } else if (form.status === "PENDING") {
+        nextPaid = 0;
+      }
+    }
+
+
+
+    if (nextPaid > totalValue || nextPaid < 0) {
+      toast.error("O valor pago deve estar entre zero e o valor total.");
+      return;
+    }
+
+    if (!editRegistration && form.status === original.status && nextPaid === original.paidAmount) {
+      toast.info("Nenhuma alteração realizada.");
+      return;
+    }
+
+    if (!editRegistration) {
+      setSaving(true);
+      try {
+        const token = localStorage.getItem("access_token");
+        const changes: Partial<UpdatePayload> = {};
+        if (nextPaid !== original.paidAmount) changes.paidAmount = nextPaid;
+        if (form.status === "CANCELLED") changes.status = "CANCELLED";
+        await api.patch(`/expenses/${id}`, changes, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        toast.success("Despesa atualizada com sucesso!");
+        router.push("/despesas");
+      } catch (exception) {
+        const message = axios.isAxiosError(exception) ? exception.response?.data?.message : null;
+        toast.error(typeof message === "string" ? message : "Não foi possível atualizar a despesa.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     if (!form.name.trim()) {
       toast.error("Informe o nome da despesa.");
@@ -718,6 +789,7 @@ function EditExpenseContent() {
       name: form.name.trim(),
       description: form.description.trim() || null,
       value: expenseValue,
+      paidAmount: nextPaid,
       category: form.category,
       categoryId: categoryId || null,
       inventoryId: form.category === STOCK_CATEGORY_NAME ? form.inventoryId : null,
@@ -737,11 +809,6 @@ function EditExpenseContent() {
             })),
     };
 
-    if (!original) {
-      toast.error("Os dados originais da despesa não foram carregados.");
-      return;
-    }
-
     const changes: Partial<UpdatePayload> = {};
     (Object.keys(payload) as (keyof UpdatePayload)[]).forEach((key) => {
       if (JSON.stringify(payload[key]) !== JSON.stringify(original[key])) {
@@ -749,6 +816,8 @@ function EditExpenseContent() {
         Object.assign(changes, { [key]: payload[key] });
       }
     });
+
+    if (form.status !== "CANCELLED") delete changes.status;
 
     if (Object.keys(changes).length === 0) {
       toast.info("Nenhuma alteração realizada.");
@@ -829,7 +898,7 @@ function EditExpenseContent() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || original.status === "CANCELLED"}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
@@ -843,6 +912,102 @@ function EditExpenseContent() {
         </div>
 
 
+        <section className={SECTION_CLASS}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-[#342d27]">Situação do pagamento</h2>
+            <span className="rounded-full bg-[#f4ede2] px-4 py-2 text-xs font-semibold text-[#735a36]">
+              {STATUS_OPTIONS.find((option) => option.value === original.status)?.label}
+            </span>
+          </div>
+          <div className={`mt-5 grid gap-3 ${original.status === "PAID" ? "sm:grid-cols-1" : "sm:grid-cols-3"}`}>
+            <div className="rounded-xl bg-[#faf8f5] p-4">
+              <p className="text-xs uppercase text-[#927448]">Valor total</p>
+              <p className="mt-2 text-2xl font-bold text-[#342d27]">{formatCurrency(original.value)}</p>
+            </div>
+            {original.status !== "PAID" && (
+              <>
+                <div className="rounded-xl bg-[#faf8f5] p-4">
+                  <p className="text-xs uppercase text-[#927448]">Valor já pago</p>
+                  <p className="mt-2 text-xl font-bold text-emerald-700">{formatCurrency(original.paidAmount)}</p>
+                  <p className="mt-1 text-xs text-[#81766b]">{((original.paidAmount / original.value) * 100).toFixed(2).replace(".", ",")}% pago</p>
+                </div>
+                <div className="rounded-xl bg-[#faf8f5] p-4">
+                  <p className="text-xs uppercase text-[#927448]">Valor pendente</p>
+                  <p className="mt-2 text-xl font-bold text-amber-700">{formatCurrency(Math.max(0, original.value - original.paidAmount))}</p>
+                  <p className="mt-1 text-xs text-[#81766b]">{((1 - original.paidAmount / original.value) * 100).toFixed(2).replace(".", ",")}% restante</p>
+                </div>
+              </>
+            )}
+          </div>
+          {(original.status === "PENDING" || original.status === "PARTIALLY_PAID" || (original.status === "PAID" && editRegistration)) && (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <Field label="Atualizar status do pagamento" required>
+                <select
+                  className={INPUT_CLASS}
+                  value={form.status}
+                  onChange={(event) => {
+                    updateForm("status", event.target.value as ExpenseStatus);
+                    setPaymentNow("");
+                  }}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </Field>
+              {form.status === "PARTIALLY_PAID" && (
+                <Field label={original.status === "PAID" ? "Valor parcial que ficará pago (R$)" : "Valor pago agora (R$)"} required>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={original.status === "PAID" ? Math.max(0, (editRegistration ? expenseValue : original.value) - 0.01) : Math.max(0, (editRegistration ? expenseValue : original.value) - original.paidAmount - 0.01)}
+                    step="0.01"
+                    value={paymentNow}
+                    onChange={(event) => setPaymentNow(event.target.value)}
+                    placeholder="0,00"
+                    className={INPUT_CLASS}
+                    required
+                  />
+                  <p className="mt-2 text-xs text-[#81766b]">
+                    {original.status === "PAID" ? "Informe o valor acumulado que deverá permanecer pago." : "O valor informado será somado ao que já foi pago."}
+                  </p>
+                </Field>
+              )}
+              {form.status === "PAID" && original.status !== "PAID" && (
+                <p className="self-center text-sm text-emerald-700">O valor pago será atualizado para o total da despesa.</p>
+              )}
+              {form.status === "PENDING" && original.paidAmount > 0 && (
+                <p className="self-center text-sm text-amber-700">Atenção: selecionar 0% pago redefine o valor pago acumulado para zero.</p>
+              )}
+              {form.status === "CANCELLED" && (
+                <p className="self-center text-sm text-red-700">O cancelamento é definitivo. Os valores pagos permanecerão registrados.</p>
+              )}
+            </div>
+          )}
+          {original.status === "CANCELLED" && (
+            <p className="mt-5 text-sm text-red-700">Esta despesa foi cancelada e não pode ser modificada.</p>
+          )}
+        </section>
+
+        <section className={SECTION_CLASS}>
+          <p className="text-sm font-semibold text-[#342d27]">Deseja alterar dados cadastrais?</p>
+          <div className="mt-4 flex gap-3">
+            {([false, true] as const).map((choice) => (
+              <button
+                key={String(choice)}
+                type="button"
+                disabled={original.status === "CANCELLED"}
+                onClick={() => setEditRegistration(choice)}
+                className={`rounded-xl border px-6 py-3 text-sm font-semibold transition disabled:opacity-50 ${editRegistration === choice ? "border-[#a98a58] bg-[#f4ede2] text-[#735a36]" : "border-[#e8e0d4] bg-white text-[#51473d]"}`}
+              >
+                {choice ? "Sim" : "Não"}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {editRegistration && original.status !== "CANCELLED" && (
+          <>
         <section className={SECTION_CLASS}>
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -888,25 +1053,6 @@ function EditExpenseContent() {
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Status" required>
-              <select
-                value={form.status}
-                onChange={(event) =>
-                  updateForm(
-                    "status",
-                    event.target.value as ExpenseStatus,
-                  )
-                }
-                className={INPUT_CLASS}
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
                   </option>
                 ))}
               </select>
@@ -1217,6 +1363,9 @@ function EditExpenseContent() {
   )}
 </section>
 
+          </>
+        )}
+
         <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <Link
             href="/despesas"
@@ -1227,7 +1376,7 @@ function EditExpenseContent() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || original.status === "CANCELLED"}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a98a58] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#927448] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
