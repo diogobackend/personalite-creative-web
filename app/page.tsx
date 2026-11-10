@@ -32,12 +32,30 @@ import {
   getExpensesReport,
   getTransactionsReport,
   getCashFlowReport,
+  getComparisonReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
   type ReportCashFlow,
+  type ReportComparison,
 } from "../src/services/reportService";
+
+function getComparisonPeriods() {
+  const now = new Date();
+  const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const toDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  return {
+    startDate: toDate(currentStart),
+    endDate: toDate(now),
+    previousStartDate: toDate(previousStart),
+    previousEndDate: toDate(previousEnd),
+  };
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -276,6 +294,9 @@ export default function HomePage() {
   const [cashFlowReport, setCashFlowReport] =
     useState<ReportCashFlow | null>(null);
 
+  const [comparisonReport, setComparisonReport] =
+    useState<ReportComparison | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const [overviewError, setOverviewError] = useState(false);
@@ -283,6 +304,7 @@ export default function HomePage() {
   const [expensesError, setExpensesError] = useState(false);
   const [transactionsError, setTransactionsError] = useState(false);
   const [cashFlowError, setCashFlowError] = useState(false);
+  const [comparisonError, setComparisonError] = useState(false);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [currentMonth, setCurrentMonth] = useState("");
@@ -306,6 +328,7 @@ export default function HomePage() {
         getExpensesReport(),
         getTransactionsReport(),
         getCashFlowReport(),
+        getComparisonReport(getComparisonPeriods()),
       ]);
 
       if (!active) return;
@@ -316,6 +339,7 @@ export default function HomePage() {
         expensesResult,
         transactionsResult,
         cashFlowResult,
+        comparisonResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -358,6 +382,14 @@ export default function HomePage() {
         setCashFlowError(true);
       }
 
+      if (comparisonResult.status === "fulfilled") {
+        setComparisonReport(comparisonResult.value);
+        setComparisonError(false);
+      } else {
+        setComparisonReport(null);
+        setComparisonError(true);
+      }
+
       setLoading(false);
     }
 
@@ -377,6 +409,7 @@ export default function HomePage() {
     setExpensesError(false);
     setTransactionsError(false);
     setCashFlowError(false);
+    setComparisonError(false);
     setReloadKey((current) => current + 1);
   };
 
@@ -386,6 +419,7 @@ export default function HomePage() {
     expensesError ? "despesas" : null,
     transactionsError ? "movimentações" : null,
     cashFlowError ? "fluxo de caixa" : null,
+    comparisonError ? "comparação de períodos" : null,
   ].filter(Boolean);
 
   return (
@@ -978,35 +1012,82 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Evolução histórica */}
-      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-[#342d27]">
-              Evolução do faturamento
-            </h2>
-
-            <p className="mt-1 text-xs text-stone-400">
-              Comparativo dos últimos 6 meses
-            </p>
-          </div>
-
-          <span className="rounded-lg border border-[#ece6dc] px-3 py-2 text-xs text-stone-500">
-            Últimos 6 meses
-          </span>
+      {/* Comparação entre períodos */}
+      <Section
+        title="Comparação de períodos"
+        description="Desempenho do mês atual em relação ao mês anterior"
+        link
+      >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {([
+            {
+              title: "Faturamento",
+              current: comparisonReport?.currentPeriod.revenue,
+              previous: comparisonReport?.previousPeriod.revenue,
+              variation: comparisonReport?.variations.revenuePercentage,
+              icon: ShoppingBag,
+            },
+            {
+              title: "Despesas",
+              current: comparisonReport?.currentPeriod.expenses,
+              previous: comparisonReport?.previousPeriod.expenses,
+              variation: comparisonReport?.variations.expensesPercentage,
+              icon: CircleDollarSign,
+            },
+            {
+              title: "Lucro previsto",
+              current: comparisonReport?.currentPeriod.profit,
+              previous: comparisonReport?.previousPeriod.profit,
+              variation: comparisonReport?.variations.profitPercentage,
+              icon: TrendingUp,
+            },
+          ] as const).map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[#342d27]">{item.title}</h3>
+                  <div className="rounded-xl bg-[#f7f2e9] p-3">
+                    <Icon className="h-5 w-5 text-[#a98a58]" />
+                  </div>
+                </div>
+                <p className="mt-5 text-xs text-stone-400">Mês atual</p>
+                <div className="mt-2 text-2xl font-bold text-[#342d27]">
+                  <Value value={item.current} loading={loading} />
+                </div>
+                <p className="mt-4 text-xs text-stone-400">Mês anterior</p>
+                <div className="mt-1 text-sm font-semibold text-stone-600">
+                  <Value value={item.previous} loading={loading} />
+                </div>
+                <div className="mt-5 border-t border-[#ece6dc] pt-4">
+                  <p className="text-xs text-stone-500">Variação em relação ao mês anterior</p>
+                  <div
+                    className={`mt-2 text-lg font-bold ${
+                      item.variation != null && item.variation < 0
+                        ? "text-red-600"
+                        : "text-emerald-700"
+                    }`}
+                  >
+                    <Value value={item.variation} loading={loading} format="percentage" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-
-        <div className="flex min-h-[160px] flex-col items-center justify-center gap-4 text-center">
-          <div className="rounded-2xl bg-[#f7f2e9] p-4">
-            <ChartNoAxesCombined className="h-7 w-7 text-[#a98a58]" />
-          </div>
-
-          <p className="text-sm text-stone-500">
-            O histórico mensal ficará disponível após a integração
-            do relatório de comparação.
+        {!loading && comparisonError && (
+          <p className="mt-4 text-sm text-red-600">
+            Não foi possível carregar a comparação de períodos.
           </p>
-        </div>
-      </section>
+        )}
+        <p className="mt-4 text-xs text-stone-400">
+          Comparação de valores previstos. O mês atual considera os dados até hoje;
+          o mês anterior considera o mês completo.
+        </p>
+      </Section>
 
       {/* Vendas recentes */}
       <section className="overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">

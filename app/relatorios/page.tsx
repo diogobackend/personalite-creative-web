@@ -30,11 +30,13 @@ import {
   getExpensesReport,
   getTransactionsReport,
   getCashFlowReport,
+  getComparisonReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
   type ReportCashFlow,
+  type ReportComparison,
   type ReportTransaction,
 } from "../../src/services/reportService";
 
@@ -106,6 +108,23 @@ function getPresetPeriod(preset: PeriodPreset): Period {
   };
 }
 
+function getPreviousPeriod(period: Period): Period {
+  const [startYear, startMonth, startDay] = period.startDate.split("-").map(Number);
+  const [endYear, endMonth, endDay] = period.endDate.split("-").map(Number);
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+  const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const previousEnd = new Date(start);
+  previousEnd.setDate(previousEnd.getDate() - 1);
+  const previousStart = new Date(previousEnd);
+  previousStart.setDate(previousStart.getDate() - durationDays + 1);
+
+  return {
+    startDate: dateToString(previousStart),
+    endDate: dateToString(previousEnd),
+  };
+}
+
 function formatValue(
   value: number | null | undefined,
   format: ValueFormat = "currency"
@@ -143,11 +162,16 @@ function Value({
   loading: boolean;
   format?: ValueFormat;
 }) {
-  return loading ? (
-    <Loading size={30} />
-  ) : (
-    <>{formatValue(value, format)}</>
+ 
+  if (loading) {
+  return (
+    <span className="inline-block">
+      <Loading />
+    </span>
   );
+}
+
+  return <>{formatValue(value, format)}</>;
 }
 
 function MetricCard({
@@ -384,6 +408,9 @@ export default function ReportsPage() {
   const [cashFlowReport, setCashFlowReport] =
     useState<ReportCashFlow | null>(null);
 
+  const [comparisonReport, setComparisonReport] =
+    useState<ReportComparison | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -393,6 +420,7 @@ export default function ReportsPage() {
   const [expensesError, setExpensesError] = useState(false);
   const [transactionsError, setTransactionsError] = useState(false);
   const [cashFlowError, setCashFlowError] = useState(false);
+  const [comparisonError, setComparisonError] = useState(false);
 
   useEffect(() => {
     setPeriod(getPresetPeriod("currentMonth"));
@@ -409,12 +437,18 @@ export default function ReportsPage() {
     let active = true;
 
     async function loadReports() {
+      const previousPeriod = getPreviousPeriod(period);
       const results = await Promise.allSettled([
         getReportOverview(period),
         getSalesReport(period),
         getExpensesReport(period),
         getTransactionsReport(period),
         getCashFlowReport(period),
+        getComparisonReport({
+          ...period,
+          previousStartDate: previousPeriod.startDate,
+          previousEndDate: previousPeriod.endDate,
+        }),
       ]);
 
       if (!active) return;
@@ -425,6 +459,7 @@ export default function ReportsPage() {
         expensesResult,
         transactionsResult,
         cashFlowResult,
+        comparisonResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -467,6 +502,14 @@ export default function ReportsPage() {
         setCashFlowError(true);
       }
 
+      if (comparisonResult.status === "fulfilled") {
+        setComparisonReport(comparisonResult.value);
+        setComparisonError(false);
+      } else {
+        setComparisonReport(null);
+        setComparisonError(true);
+      }
+
       setLoading(false);
     }
 
@@ -507,12 +550,14 @@ export default function ReportsPage() {
       setExpensesReport(null);
       setTransactionsReport(null);
       setCashFlowReport(null);
+      setComparisonReport(null);
 
       setOverviewError(false);
       setSalesError(false);
       setExpensesError(false);
       setTransactionsError(false);
       setCashFlowError(false);
+      setComparisonError(false);
     }
   };
 
@@ -525,6 +570,7 @@ export default function ReportsPage() {
     setExpensesError(false);
     setTransactionsError(false);
     setCashFlowError(false);
+    setComparisonError(false);
     setReloadKey((value) => value + 1);
   };
 
@@ -534,6 +580,7 @@ export default function ReportsPage() {
     expensesError ? "despesas" : null,
     transactionsError ? "movimentações" : null,
     cashFlowError ? "fluxo de caixa" : null,
+    comparisonError ? "comparação de períodos" : null,
   ].filter(Boolean);
 
   const recentTransactions =
@@ -1085,6 +1132,69 @@ export default function ReportsPage() {
         </div>
       </Section>
 
+      {/* Comparação de períodos */}
+      <Section
+        title="Comparação de períodos"
+        description="Compare o período selecionado com o intervalo imediatamente anterior de mesma duração"
+      >
+        {validPeriod && (
+          <p className="mb-5 text-xs text-stone-500">
+            Período atual: {formatDate(period.startDate)} a {formatDate(period.endDate)}
+            {" · "}
+            Período anterior: {formatDate(getPreviousPeriod(period).startDate)} a {formatDate(getPreviousPeriod(period).endDate)}
+          </p>
+        )}
+
+        {comparisonError && !loading ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            Não foi possível consultar a comparação de períodos.
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {([
+              { label: "Faturamento", key: "revenue" as const, variation: "revenuePercentage" as const, icon: ShoppingBag },
+              { label: "Despesas", key: "expenses" as const, variation: "expensesPercentage" as const, icon: CircleDollarSign },
+              { label: "Lucro previsto", key: "profit" as const, variation: "profitPercentage" as const, icon: TrendingUp },
+            ]).map((item) => {
+              const Icon = item.icon;
+              const variation = comparisonReport?.variations[item.variation];
+              return (
+                <div key={item.key} className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-[#342d27]">{item.label}</h3>
+                    <Icon className="h-5 w-5 text-[#a98a58]" />
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    <div>
+                      <p className="text-xs text-stone-400">Período atual</p>
+                      <Value
+                        value={comparisonReport?.currentPeriod[item.key]}
+                        loading={loading}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-stone-400">Período anterior</p>
+                      <p className="mt-1 text-base font-semibold text-stone-600">
+                        <Value value={comparisonReport?.previousPeriod[item.key]} loading={loading} />
+                      </p>
+                    </div>
+                    <div className="border-t border-[#f0ece5] pt-3">
+                      <p className="text-xs text-stone-400">Variação</p>
+                      <p className={`mt-1 text-base font-semibold ${variation == null ? "text-stone-500" : variation >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                        <Value value={variation} loading={loading} format="percentage" />
+                      </p>
+                      {!loading && variation == null && !comparisonError && (
+                        <p className="mt-1 text-xs text-stone-400">Sem base anterior para calcular a variação.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
       {/* Detalhamento */}
       <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
         <div className="mb-7">
@@ -1166,11 +1276,6 @@ export default function ReportsPage() {
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           {[
-            {
-              title: "Comparação de períodos",
-              description:
-                "Evolução das vendas, despesas e resultados entre meses.",
-            },
             {
               title: "Exportação",
               description:

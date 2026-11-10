@@ -6,6 +6,13 @@ export interface ReportPeriod {
   endDate?: string;
 }
 
+export interface ReportComparisonPeriodParams {
+  startDate: string;
+  endDate: string;
+  previousStartDate: string;
+  previousEndDate: string;
+}
+
 export interface ReportOverview {
   expectedRevenue: number;
   receivedRevenue: number;
@@ -64,6 +71,26 @@ export interface ReportCashFlow {
   totalExits: number;
   balance: number;
   days: ReportCashFlowDay[];
+}
+
+export interface ReportComparisonPeriod {
+  startDate: string;
+  endDate: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+}
+
+export interface ReportComparisonVariations {
+  revenuePercentage: number | null;
+  expensesPercentage: number | null;
+  profitPercentage: number | null;
+}
+
+export interface ReportComparison {
+  currentPeriod: ReportComparisonPeriod;
+  previousPeriod: ReportComparisonPeriod;
+  variations: ReportComparisonVariations;
 }
 
 export async function getReportOverview(
@@ -136,6 +163,24 @@ export async function getCashFlowReport(
 
   const response = await api.get<ReportCashFlow>(
     "/reports/cash-flow",
+    {
+      params: period,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+export async function getComparisonReport(
+  period: ReportComparisonPeriodParams
+): Promise<ReportComparison> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<ReportComparison>(
+    "/reports/comparison",
     {
       params: period,
       headers: {
