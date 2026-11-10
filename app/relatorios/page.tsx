@@ -17,6 +17,7 @@ import {
   Percent,
   ReceiptText,
   RefreshCw,
+  Download,
   ShoppingBag,
   TrendingUp,
   Wallet,
@@ -33,6 +34,9 @@ import {
   getCashFlowReport,
   getComparisonReport,
   getRevenueEvolutionReport,
+  exportReport,
+  type ReportExportFormat,
+  type ReportExportType,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
@@ -47,6 +51,7 @@ type PeriodPreset =
   | "today"
   | "last7"
   | "last30"
+  | "last6Months"
   | "currentMonth"
   | "previousMonth"
   | "custom";
@@ -62,6 +67,7 @@ const PRESETS: { label: string; value: PeriodPreset }[] = [
   { label: "Hoje", value: "today" },
   { label: "Últimos 7 dias", value: "last7" },
   { label: "Últimos 30 dias", value: "last30" },
+  { label: "Últimos 6 meses", value: "last6Months" },
   { label: "Mês atual", value: "currentMonth" },
   { label: "Mês anterior", value: "previousMonth" },
   { label: "Personalizado", value: "custom" },
@@ -91,6 +97,11 @@ function getPresetPeriod(preset: PeriodPreset): Period {
 
     case "last30":
       start.setDate(start.getDate() - 29);
+      break;
+
+    case "last6Months":
+      start.setDate(1);
+      start.setMonth(start.getMonth() - 5);
       break;
 
     case "previousMonth":
@@ -173,7 +184,7 @@ function Value({
   format?: ValueFormat;
 }) {
   if (loading) {
-    return <span className="inline-block animate-pulse text-stone-300">•••</span>;
+    return <Loading />;
   }
 
   return <>{formatValue(value, format)}</>;
@@ -281,9 +292,9 @@ function SummaryRow({
         {label}
       </span>
 
-      <span className="shrink-0 text-sm font-semibold text-[#342d27]">
+      <div className="shrink-0 text-sm font-semibold text-[#342d27]">
         <Value value={value} loading={loading} />
-      </span>
+      </div>
     </div>
   );
 }
@@ -311,13 +322,13 @@ function PaymentProgress({
           {title}
         </span>
 
-        <span className="text-xs font-semibold text-[#342d27]">
+        <div className="text-xs font-semibold text-[#342d27]">
           <Value
             value={percentage}
             loading={loading}
             format="percentage"
           />
-        </span>
+        </div>
       </div>
 
       <div
@@ -422,6 +433,24 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [exportType, setExportType] = useState<ReportExportType>("ALL");
+  const [exportFormat, setExportFormat] = useState<ReportExportFormat>("PDF");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    if (exporting || !validPeriod) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportReport(period, exportFormat, exportType);
+    } catch {
+      setExportError("Não foi possível exportar o relatório. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   const [overviewError, setOverviewError] = useState(false);
   const [salesError, setSalesError] = useState(false);
@@ -742,6 +771,56 @@ export default function ReportsPage() {
             {formatDate(period.endDate)}
           </div>
         )}
+      </section>
+
+      {/* Exportação dos relatórios */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">Exportar relatórios</h2>
+            <p className="mt-1 text-xs text-stone-400">
+              Exporte os dados do período selecionado em PDF ou Excel.
+            </p>
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <select
+              aria-label="Relatório para exportação"
+              value={exportType}
+              onChange={(event) => setExportType(event.target.value as ReportExportType)}
+              disabled={exporting}
+              className="min-w-0 flex-1 rounded-xl border border-[#e9dfcc] bg-white px-3 py-2.5 text-sm text-[#342d27] sm:flex-none"
+            >
+              <option value="ALL">Todos os relatórios</option>
+              <option value="OVERVIEW">Visão geral</option>
+              <option value="SALES">Vendas</option>
+              <option value="EXPENSES">Despesas</option>
+              <option value="TRANSACTIONS">Movimentações</option>
+              <option value="CASH_FLOW">Fluxo de caixa</option>
+              <option value="COMPARISON">Comparação de períodos</option>
+              <option value="REVENUE_EVOLUTION">Evolução do faturamento</option>
+            </select>
+            <select
+              aria-label="Formato de exportação"
+              value={exportFormat}
+              onChange={(event) => setExportFormat(event.target.value as ReportExportFormat)}
+              disabled={exporting}
+              className="rounded-xl border border-[#e9dfcc] bg-white px-3 py-2.5 text-sm text-[#342d27]"
+            >
+              <option value="PDF">PDF</option>
+              <option value="XLSX">Excel</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting || !validPeriod}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448] disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? "Exportando..." : "Baixar"}
+            </button>
+          </div>
+        </div>
+        {exportError && <p role="alert" className="mt-3 text-sm text-red-600">{exportError}</p>}
       </section>
 
       {/* Erros */}
@@ -1276,17 +1355,17 @@ export default function ReportsPage() {
                     </div>
                     <div>
                       <p className="text-xs text-stone-400">Período anterior</p>
-                      <p className="mt-1 text-base font-semibold text-stone-600">
-                        <Value value={comparisonReport?.previousPeriod[item.key]} loading={loading} />
-                      </p>
+                      <div className="mt-1 text-base font-semibold text-stone-600">
+                        <Value value={variation} loading={loading} format="percentage" />
+                      </div>
                     </div>
                     <div className="border-t border-[#f0ece5] pt-3">
                       <p className="text-xs text-stone-400">Variação</p>
-                      <p className={`mt-1 text-base font-semibold ${variation == null ? "text-stone-500" : variation >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                      <div className={`mt-1 text-base font-semibold ${variation == null ? "text-stone-500" : variation >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                         <Value value={variation} loading={loading} format="percentage" />
-                      </p>
+                      </div>
                       {!loading && variation == null && !comparisonError && (
-                        <p className="mt-1 text-xs text-stone-400">Sem base anterior para calcular a variação.</p>
+                        <div className="mt-1 text-xs text-stone-400">Sem base anterior para calcular a variação.</div>
                       )}
                     </div>
                   </div>
@@ -1358,61 +1437,8 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Futuras integrações */}
-      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-[#f7f2e9] p-2.5">
-            <ChartNoAxesCombined className="h-5 w-5 text-[#a98a58]" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-semibold text-[#342d27]">
-              Próximas análises
-            </h2>
-
-            <p className="mt-1 text-xs text-stone-400">
-              Funcionalidades que serão integradas posteriormente
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {[
-            {
-              title: "Exportação",
-              description:
-                "Geração de relatórios em PDF e Excel.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="rounded-xl border border-[#ece6dc] bg-[#faf8f5] p-5"
-            >
-              <p className="text-sm font-semibold text-[#342d27]">
-                {item.title}
-              </p>
-
-              <p className="mt-2 text-xs leading-5 text-stone-500">
-                {item.description}
-              </p>
-
-              <span className="mt-4 inline-block text-xs font-medium text-[#a98a58]">
-                Em desenvolvimento
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Rodapé */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#e9e2d8] pt-6">
-        <p className="max-w-2xl text-xs leading-5 text-stone-400">
-          Os indicadores consideram os valores atuais das operações
-          registradas no período. As movimentações utilizam datas
-          de referência, não necessariamente as datas em que os
-          pagamentos ocorreram.
-        </p>
-
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm font-semibold text-[#a98a58] hover:text-[#927448]"

@@ -103,6 +103,18 @@ export interface ReportRevenueEvolution {
   months: ReportRevenueEvolutionMonth[];
 }
 
+export type ReportExportFormat = "PDF" | "XLSX";
+
+export type ReportExportType =
+  | "ALL"
+  | "OVERVIEW"
+  | "SALES"
+  | "EXPENSES"
+  | "TRANSACTIONS"
+  | "CASH_FLOW"
+  | "COMPARISON"
+  | "REVENUE_EVOLUTION";
+
 export async function getReportOverview(
   period: ReportPeriod = {}
 ): Promise<ReportOverview> {
@@ -218,4 +230,40 @@ export async function getRevenueEvolutionReport(
   );
 
   return response.data;
+}
+
+export async function exportReport(
+  period: Required<ReportPeriod>,
+  format: ReportExportFormat,
+  type: ReportExportType
+): Promise<void> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<Blob>("/reports/export", {
+    params: {
+      ...period,
+      format,
+      type,
+    },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    responseType: "blob",
+  });
+
+  const url = window.URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+
+  try {
+    link.href = url;
+    link.download = `relatorio-${type.toLowerCase()}.${format.toLowerCase()}`;
+
+    document.body.appendChild(link);
+    link.click();
+  } finally {
+    link.remove();
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 1000);
+  }
 }

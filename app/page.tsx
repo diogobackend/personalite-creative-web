@@ -22,6 +22,7 @@ import {
   ReceiptText,
   Percent,
   Clock3,
+  Download,
 } from "lucide-react";
 
 import DashboardLayout from "../src/components/layout/DashboardLayout";
@@ -35,6 +36,9 @@ import {
   getCashFlowReport,
   getComparisonReport,
   getRevenueEvolutionReport,
+  exportReport,
+  type ReportExportFormat,
+  type ReportExportType,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
@@ -331,6 +335,24 @@ export default function HomePage() {
 
   const [reloadKey, setReloadKey] = useState(0);
   const [currentMonth, setCurrentMonth] = useState("");
+  const [exportType, setExportType] = useState<ReportExportType>("ALL");
+  const [exportFormat, setExportFormat] = useState<ReportExportFormat>("PDF");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { startDate, endDate } = getComparisonPeriods();
+      await exportReport({ startDate, endDate }, exportFormat, exportType);
+    } catch {
+      setExportError("Não foi possível exportar o relatório. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     setCurrentMonth(
@@ -506,6 +528,56 @@ export default function HomePage() {
           Atualizar
         </button>
       </div>
+
+      {/* Exportação dos relatórios */}
+      <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#342d27]">Exportar relatórios</h2>
+            <p className="mt-1 text-xs text-stone-400">
+              Baixe os dados financeiros do mês atual em PDF ou Excel.
+            </p>
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <select
+              aria-label="Relatório para exportação"
+              value={exportType}
+              onChange={(event) => setExportType(event.target.value as ReportExportType)}
+              disabled={exporting}
+              className="min-w-0 flex-1 rounded-xl border border-[#e9dfcc] bg-white px-3 py-2.5 text-sm text-[#342d27] sm:flex-none"
+            >
+              <option value="ALL">Todos os relatórios</option>
+              <option value="OVERVIEW">Visão geral</option>
+              <option value="SALES">Vendas</option>
+              <option value="EXPENSES">Despesas</option>
+              <option value="TRANSACTIONS">Movimentações</option>
+              <option value="CASH_FLOW">Fluxo de caixa</option>
+              <option value="COMPARISON">Comparação de períodos</option>
+              <option value="REVENUE_EVOLUTION">Evolução do faturamento</option>
+            </select>
+            <select
+              aria-label="Formato de exportação"
+              value={exportFormat}
+              onChange={(event) => setExportFormat(event.target.value as ReportExportFormat)}
+              disabled={exporting}
+              className="rounded-xl border border-[#e9dfcc] bg-white px-3 py-2.5 text-sm text-[#342d27]"
+            >
+              <option value="PDF">PDF</option>
+              <option value="XLSX">Excel</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#a98a58] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#927448] disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? "Exportando..." : "Baixar"}
+            </button>
+          </div>
+        </div>
+        {exportError && <p role="alert" className="mt-3 text-sm text-red-600">{exportError}</p>}
+      </section>
 
       {/* Erros */}
       {failedReports.length > 0 && (
