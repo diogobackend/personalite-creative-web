@@ -22,17 +22,19 @@ import {
 } from "lucide-react";
 
 import DashboardLayout from "../../src/components/layout/DashboardLayout";
-import Loading from "../../app/../src/components/layout/Loading";
+import Loading from "../../src/components/layout/Loading";
 
 import {
   getReportOverview,
   getSalesReport,
   getExpensesReport,
   getTransactionsReport,
+  getCashFlowReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
+  type ReportCashFlow,
   type ReportTransaction,
 } from "../../src/services/reportService";
 
@@ -379,6 +381,9 @@ export default function ReportsPage() {
   const [transactionsReport, setTransactionsReport] =
     useState<ReportTransactions | null>(null);
 
+  const [cashFlowReport, setCashFlowReport] =
+    useState<ReportCashFlow | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -387,6 +392,7 @@ export default function ReportsPage() {
   const [salesError, setSalesError] = useState(false);
   const [expensesError, setExpensesError] = useState(false);
   const [transactionsError, setTransactionsError] = useState(false);
+  const [cashFlowError, setCashFlowError] = useState(false);
 
   useEffect(() => {
     setPeriod(getPresetPeriod("currentMonth"));
@@ -408,6 +414,7 @@ export default function ReportsPage() {
         getSalesReport(period),
         getExpensesReport(period),
         getTransactionsReport(period),
+        getCashFlowReport(period),
       ]);
 
       if (!active) return;
@@ -417,6 +424,7 @@ export default function ReportsPage() {
         salesResult,
         expensesResult,
         transactionsResult,
+        cashFlowResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -449,6 +457,14 @@ export default function ReportsPage() {
       } else {
         setTransactionsReport(null);
         setTransactionsError(true);
+      }
+
+      if (cashFlowResult.status === "fulfilled") {
+        setCashFlowReport(cashFlowResult.value);
+        setCashFlowError(false);
+      } else {
+        setCashFlowReport(null);
+        setCashFlowError(true);
       }
 
       setLoading(false);
@@ -490,11 +506,13 @@ export default function ReportsPage() {
       setSalesReport(null);
       setExpensesReport(null);
       setTransactionsReport(null);
+      setCashFlowReport(null);
 
       setOverviewError(false);
       setSalesError(false);
       setExpensesError(false);
       setTransactionsError(false);
+      setCashFlowError(false);
     }
   };
 
@@ -506,6 +524,7 @@ export default function ReportsPage() {
     setSalesError(false);
     setExpensesError(false);
     setTransactionsError(false);
+    setCashFlowError(false);
     setReloadKey((value) => value + 1);
   };
 
@@ -514,6 +533,7 @@ export default function ReportsPage() {
     salesError ? "vendas" : null,
     expensesError ? "despesas" : null,
     transactionsError ? "movimentações" : null,
+    cashFlowError ? "fluxo de caixa" : null,
   ].filter(Boolean);
 
   const recentTransactions =
@@ -979,6 +999,92 @@ export default function ReportsPage() {
         </div>
       </Section>
 
+      {/* Fluxo de caixa */}
+      <Section
+        title="Fluxo de caixa"
+        description="Entradas, saídas e saldo por data de referência no período selecionado"
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            title="Entradas do período"
+            value={cashFlowReport?.totalEntries}
+            description="Total das entradas consideradas no fluxo"
+            icon={ArrowUpRight}
+            loading={loading}
+          />
+          <MetricCard
+            title="Saídas do período"
+            value={cashFlowReport?.totalExits}
+            description="Total das saídas consideradas no fluxo"
+            icon={ArrowDownRight}
+            loading={loading}
+          />
+          <MetricCard
+            title="Saldo do período"
+            value={cashFlowReport?.balance}
+            description="Diferença entre entradas e saídas"
+            icon={Wallet}
+            loading={loading}
+            positive
+          />
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
+          <div className="px-5 py-5 sm:px-7">
+            <h3 className="text-base font-semibold text-[#342d27]">
+              Fluxo diário
+            </h3>
+            <p className="mt-1 text-xs text-stone-400">
+              Movimentações agrupadas pela data de referência, não necessariamente pela data do pagamento
+            </p>
+          </div>
+          {loading ? (
+            <div className="flex justify-center border-t border-[#f0ece5] py-8">
+              <Loading />
+            </div>
+          ) : cashFlowReport === null ? (
+            <p className="border-t border-[#f0ece5] px-5 py-8 text-center text-sm text-stone-400">
+              Não foi possível consultar o fluxo de caixa.
+            </p>
+          ) : cashFlowReport.days.length === 0 ? (
+            <p className="border-t border-[#f0ece5] px-5 py-8 text-center text-sm text-stone-400">
+              Nenhuma movimentação encontrada neste período.
+            </p>
+          ) : (
+            <div className="overflow-x-auto border-t border-[#f0ece5]">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="bg-[#faf8f5] text-xs text-stone-500">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold sm:px-7">Data</th>
+                    <th className="px-5 py-3 text-right font-semibold">Entradas</th>
+                    <th className="px-5 py-3 text-right font-semibold">Saídas</th>
+                    <th className="px-5 py-3 text-right font-semibold sm:pr-7">Saldo diário</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cashFlowReport.days.map((day) => (
+                    <tr key={day.date} className="border-t border-[#f0ece5]">
+                      <td className="px-5 py-4 font-medium text-[#342d27] sm:px-7">
+                        {formatDate(day.date)}
+                      </td>
+                      <td className="px-5 py-4 text-right text-emerald-700">
+                        {formatValue(day.entries)}
+                      </td>
+                      <td className="px-5 py-4 text-right text-red-600">
+                        {formatValue(day.exits)}
+                      </td>
+                      <td className={`px-5 py-4 text-right font-semibold sm:pr-7 ${day.balance < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                        {formatValue(day.balance)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Section>
+
       {/* Detalhamento */}
       <section className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
         <div className="mb-7">
@@ -1058,13 +1164,8 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
           {[
-            {
-              title: "Fluxo de caixa",
-              description:
-                "Acompanhamento das entradas e saídas por data efetiva de pagamento.",
-            },
             {
               title: "Comparação de períodos",
               description:

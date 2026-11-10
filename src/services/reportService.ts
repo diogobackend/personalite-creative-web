@@ -52,6 +52,20 @@ export interface ReportTransactions {
   transactions: ReportTransaction[];
 }
 
+export interface ReportCashFlowDay {
+  date: string;
+  entries: number;
+  exits: number;
+  balance: number;
+}
+
+export interface ReportCashFlow {
+  totalEntries: number;
+  totalExits: number;
+  balance: number;
+  days: ReportCashFlowDay[];
+}
+
 export async function getReportOverview(
   period: ReportPeriod = {}
 ): Promise<ReportOverview> {
@@ -104,6 +118,24 @@ export async function getTransactionsReport(
 
   const response = await api.get<ReportTransactions>(
     "/reports/transactions",
+    {
+      params: period,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+export async function getCashFlowReport(
+  period: ReportPeriod = {}
+): Promise<ReportCashFlow> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<ReportCashFlow>(
+    "/reports/cash-flow",
     {
       params: period,
       headers: {

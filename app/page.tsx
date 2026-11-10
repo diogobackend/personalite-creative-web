@@ -31,10 +31,12 @@ import {
   getSalesReport,
   getExpensesReport,
   getTransactionsReport,
+  getCashFlowReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
+  type ReportCashFlow,
 } from "../src/services/reportService";
 
 function formatCurrency(value: number): string {
@@ -271,12 +273,16 @@ export default function HomePage() {
   const [transactionsReport, setTransactionsReport] =
     useState<ReportTransactions | null>(null);
 
+  const [cashFlowReport, setCashFlowReport] =
+    useState<ReportCashFlow | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const [overviewError, setOverviewError] = useState(false);
   const [salesError, setSalesError] = useState(false);
   const [expensesError, setExpensesError] = useState(false);
   const [transactionsError, setTransactionsError] = useState(false);
+  const [cashFlowError, setCashFlowError] = useState(false);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [currentMonth, setCurrentMonth] = useState("");
@@ -299,6 +305,7 @@ export default function HomePage() {
         getSalesReport(),
         getExpensesReport(),
         getTransactionsReport(),
+        getCashFlowReport(),
       ]);
 
       if (!active) return;
@@ -308,6 +315,7 @@ export default function HomePage() {
         salesResult,
         expensesResult,
         transactionsResult,
+        cashFlowResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -342,6 +350,14 @@ export default function HomePage() {
         setTransactionsError(true);
       }
 
+      if (cashFlowResult.status === "fulfilled") {
+        setCashFlowReport(cashFlowResult.value);
+        setCashFlowError(false);
+      } else {
+        setCashFlowReport(null);
+        setCashFlowError(true);
+      }
+
       setLoading(false);
     }
 
@@ -360,6 +376,7 @@ export default function HomePage() {
     setSalesError(false);
     setExpensesError(false);
     setTransactionsError(false);
+    setCashFlowError(false);
     setReloadKey((current) => current + 1);
   };
 
@@ -368,6 +385,7 @@ export default function HomePage() {
     salesError ? "vendas" : null,
     expensesError ? "despesas" : null,
     transactionsError ? "movimentações" : null,
+    cashFlowError ? "fluxo de caixa" : null,
   ].filter(Boolean);
 
   return (
@@ -739,6 +757,101 @@ export default function HomePage() {
             description="Entradas menos saídas registradas no período"
             loading={loading}
           />
+        </div>
+      </Section>
+
+      {/* Fluxo de caixa */}
+      <Section
+        title="Fluxo de caixa"
+        description="Entradas, saídas e saldo organizados por data de referência no mês"
+        link
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            title="Entradas do período"
+            value={cashFlowReport?.totalEntries}
+            icon={ArrowUpRight}
+            description="Soma das entradas consideradas no fluxo de caixa"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Saídas do período"
+            value={cashFlowReport?.totalExits}
+            icon={ArrowDownRight}
+            description="Soma das saídas consideradas no fluxo de caixa"
+            loading={loading}
+          />
+
+          <MetricCard
+            title="Saldo do período"
+            value={cashFlowReport?.balance}
+            icon={Wallet}
+            description="Diferença entre entradas e saídas do período"
+            loading={loading}
+          />
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-2xl border border-[#ece6dc] bg-white shadow-sm">
+          <div className="border-b border-[#f0ece5] px-5 py-5 sm:px-7">
+            <h3 className="text-sm font-semibold text-[#342d27]">
+              Movimentação por dia
+            </h3>
+            <p className="mt-1 text-xs text-stone-400">
+              Dias com movimentações registradas no período
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="flex min-h-[150px] items-center justify-center">
+              <Loading size={30} />
+            </div>
+          ) : cashFlowError ? (
+            <p className="px-5 py-8 text-center text-sm text-red-600">
+              Não foi possível carregar o fluxo de caixa.
+            </p>
+          ) : !cashFlowReport?.days.length ? (
+            <p className="px-5 py-8 text-center text-sm text-stone-500">
+              Nenhuma movimentação encontrada neste período.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead className="bg-[#faf8f5] text-xs text-stone-500">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold sm:px-7">Data</th>
+                    <th className="px-5 py-3 text-right font-semibold">Entradas</th>
+                    <th className="px-5 py-3 text-right font-semibold">Saídas</th>
+                    <th className="px-5 py-3 text-right font-semibold sm:pr-7">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0ece5]">
+                  {cashFlowReport.days.map((day) => (
+                    <tr key={day.date}>
+                      <td className="px-5 py-3 font-medium text-[#342d27] sm:px-7">
+                        {new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(
+                          new Date(`${day.date}T12:00:00Z`)
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right text-emerald-700">
+                        {formatCurrency(day.entries)}
+                      </td>
+                      <td className="px-5 py-3 text-right text-red-600">
+                        {formatCurrency(day.exits)}
+                      </td>
+                      <td
+                        className={`px-5 py-3 text-right font-semibold sm:pr-7 ${
+                          day.balance < 0 ? "text-red-600" : "text-[#342d27]"
+                        }`}
+                      >
+                        {formatCurrency(day.balance)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Section>
 
