@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ElementType, ReactNode } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -33,12 +34,14 @@ import {
   getTransactionsReport,
   getCashFlowReport,
   getComparisonReport,
+  getRevenueEvolutionReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
   type ReportCashFlow,
   type ReportComparison,
+  type ReportRevenueEvolution,
 } from "../src/services/reportService";
 
 function getComparisonPeriods() {
@@ -55,6 +58,22 @@ function getComparisonPeriods() {
     previousStartDate: toDate(previousStart),
     previousEndDate: toDate(previousEnd),
   };
+}
+
+function getRevenueEvolutionPeriod() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const toDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  return { startDate: toDate(start), endDate: toDate(now) };
+}
+
+function formatMonth(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(
+    new Date(year, monthNumber - 1, 1)
+  ).replace(".", "");
 }
 
 function formatCurrency(value: number): string {
@@ -297,6 +316,9 @@ export default function HomePage() {
   const [comparisonReport, setComparisonReport] =
     useState<ReportComparison | null>(null);
 
+  const [revenueEvolution, setRevenueEvolution] =
+    useState<ReportRevenueEvolution | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const [overviewError, setOverviewError] = useState(false);
@@ -305,6 +327,7 @@ export default function HomePage() {
   const [transactionsError, setTransactionsError] = useState(false);
   const [cashFlowError, setCashFlowError] = useState(false);
   const [comparisonError, setComparisonError] = useState(false);
+  const [revenueEvolutionError, setRevenueEvolutionError] = useState(false);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [currentMonth, setCurrentMonth] = useState("");
@@ -329,6 +352,7 @@ export default function HomePage() {
         getTransactionsReport(),
         getCashFlowReport(),
         getComparisonReport(getComparisonPeriods()),
+        getRevenueEvolutionReport(getRevenueEvolutionPeriod()),
       ]);
 
       if (!active) return;
@@ -340,6 +364,7 @@ export default function HomePage() {
         transactionsResult,
         cashFlowResult,
         comparisonResult,
+        revenueEvolutionResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -390,6 +415,14 @@ export default function HomePage() {
         setComparisonError(true);
       }
 
+      if (revenueEvolutionResult.status === "fulfilled") {
+        setRevenueEvolution(revenueEvolutionResult.value);
+        setRevenueEvolutionError(false);
+      } else {
+        setRevenueEvolution(null);
+        setRevenueEvolutionError(true);
+      }
+
       setLoading(false);
     }
 
@@ -410,6 +443,7 @@ export default function HomePage() {
     setTransactionsError(false);
     setCashFlowError(false);
     setComparisonError(false);
+    setRevenueEvolutionError(false);
     setReloadKey((current) => current + 1);
   };
 
@@ -420,6 +454,7 @@ export default function HomePage() {
     transactionsError ? "movimentações" : null,
     cashFlowError ? "fluxo de caixa" : null,
     comparisonError ? "comparação de períodos" : null,
+    revenueEvolutionError ? "evolução do faturamento" : null,
   ].filter(Boolean);
 
   return (
@@ -530,6 +565,101 @@ export default function HomePage() {
             description="Dinheiro recebido menos as despesas pagas"
             loading={loading}
           />
+        </div>
+      </Section>
+
+      {/* Evolução do faturamento */}
+      <Section
+        title="Evolução do faturamento"
+        description="Faturamento bruto mensal dos últimos seis meses"
+        link
+      >
+        <div className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-stone-400">Total no período</p>
+              <div className="mt-2 text-2xl font-bold tracking-tight text-[#342d27]">
+                <Value value={revenueEvolution?.totalRevenue} loading={loading} />
+              </div>
+            </div>
+            <div className="rounded-xl bg-[#f7f2e9] p-3">
+              <TrendingUp className="h-5 w-5 text-[#a98a58]" />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex h-[300px] items-center justify-center">
+              <Loading size={30} />
+            </div>
+          ) : revenueEvolutionError ? (
+            <div className="flex h-[300px] items-center justify-center text-sm text-red-600">
+              Não foi possível carregar a evolução do faturamento.
+            </div>
+          ) : !revenueEvolution?.months.length ? (
+            <div className="flex h-[300px] items-center justify-center text-sm text-stone-500">
+              Nenhum dado de faturamento encontrado.
+            </div>
+          ) : (
+            <div className="h-[300px] w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={revenueEvolution.months.map((item) => ({
+                    month: formatMonth(item.month),
+                    revenue: item.revenue,
+                  }))}
+                  margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="revenueEvolutionGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a98a58" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#a98a58" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#f0ece5" strokeDasharray="4 4" />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#78716c", fontSize: 12 }}
+                    dy={12}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#78716c", fontSize: 11 }}
+                    tickFormatter={(value: number) =>
+                      new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+                    }
+                    width={54}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [formatCurrency(Number(value ?? 0)), "Faturamento"]}
+                    labelFormatter={(label) => `Mês: ${label}`}
+                    contentStyle={{
+                      border: "1px solid #ece6dc",
+                      borderRadius: 12,
+                      backgroundColor: "#fff",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#a98a58"
+                    strokeWidth={3}
+                    fill="url(#revenueEvolutionGradient)"
+                    dot={{ r: 4, fill: "#fff", stroke: "#a98a58", strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: "#a98a58", stroke: "#fff", strokeWidth: 2 }}
+                    isAnimationActive
+                    animationDuration={700}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <p className="mt-5 text-xs text-stone-400">
+            Valores vendidos por mês, incluindo recebimentos pendentes. O mês atual considera os dados até hoje.
+          </p>
         </div>
       </Section>
 

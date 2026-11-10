@@ -93,6 +93,16 @@ export interface ReportComparison {
   variations: ReportComparisonVariations;
 }
 
+export interface ReportRevenueEvolutionMonth {
+  month: string;
+  revenue: number;
+}
+
+export interface ReportRevenueEvolution {
+  totalRevenue: number;
+  months: ReportRevenueEvolutionMonth[];
+}
+
 export async function getReportOverview(
   period: ReportPeriod = {}
 ): Promise<ReportOverview> {
@@ -181,6 +191,24 @@ export async function getComparisonReport(
 
   const response = await api.get<ReportComparison>(
     "/reports/comparison",
+    {
+      params: period,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+export async function getRevenueEvolutionReport(
+  period: Required<ReportPeriod>
+): Promise<ReportRevenueEvolution> {
+  const token = localStorage.getItem("access_token");
+
+  const response = await api.get<ReportRevenueEvolution>(
+    "/reports/revenue-evolution",
     {
       params: period,
       headers: {

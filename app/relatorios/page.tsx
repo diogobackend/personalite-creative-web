@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ElementType, ReactNode } from "react";
 import {
   ArrowDownRight,
@@ -31,12 +32,14 @@ import {
   getTransactionsReport,
   getCashFlowReport,
   getComparisonReport,
+  getRevenueEvolutionReport,
   type ReportOverview,
   type SalesReport,
   type ExpensesReport,
   type ReportTransactions,
   type ReportCashFlow,
   type ReportComparison,
+  type ReportRevenueEvolution,
   type ReportTransaction,
 } from "../../src/services/reportService";
 
@@ -148,6 +151,13 @@ function formatValue(
   }).format(value);
 }
 
+function formatMonth(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" })
+    .format(new Date(year, monthNumber - 1, 1))
+    .replace(".", "");
+}
+
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
@@ -162,14 +172,9 @@ function Value({
   loading: boolean;
   format?: ValueFormat;
 }) {
- 
   if (loading) {
-  return (
-    <span className="inline-block">
-      <Loading />
-    </span>
-  );
-}
+    return <span className="inline-block animate-pulse text-stone-300">•••</span>;
+  }
 
   return <>{formatValue(value, format)}</>;
 }
@@ -411,6 +416,9 @@ export default function ReportsPage() {
   const [comparisonReport, setComparisonReport] =
     useState<ReportComparison | null>(null);
 
+  const [revenueEvolution, setRevenueEvolution] =
+    useState<ReportRevenueEvolution | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -421,6 +429,7 @@ export default function ReportsPage() {
   const [transactionsError, setTransactionsError] = useState(false);
   const [cashFlowError, setCashFlowError] = useState(false);
   const [comparisonError, setComparisonError] = useState(false);
+  const [revenueEvolutionError, setRevenueEvolutionError] = useState(false);
 
   useEffect(() => {
     setPeriod(getPresetPeriod("currentMonth"));
@@ -449,6 +458,7 @@ export default function ReportsPage() {
           previousStartDate: previousPeriod.startDate,
           previousEndDate: previousPeriod.endDate,
         }),
+        getRevenueEvolutionReport(period),
       ]);
 
       if (!active) return;
@@ -460,6 +470,7 @@ export default function ReportsPage() {
         transactionsResult,
         cashFlowResult,
         comparisonResult,
+        revenueEvolutionResult,
       ] = results;
 
       if (overviewResult.status === "fulfilled") {
@@ -510,6 +521,14 @@ export default function ReportsPage() {
         setComparisonError(true);
       }
 
+      if (revenueEvolutionResult.status === "fulfilled") {
+        setRevenueEvolution(revenueEvolutionResult.value);
+        setRevenueEvolutionError(false);
+      } else {
+        setRevenueEvolution(null);
+        setRevenueEvolutionError(true);
+      }
+
       setLoading(false);
     }
 
@@ -551,6 +570,7 @@ export default function ReportsPage() {
       setTransactionsReport(null);
       setCashFlowReport(null);
       setComparisonReport(null);
+      setRevenueEvolution(null);
 
       setOverviewError(false);
       setSalesError(false);
@@ -558,6 +578,7 @@ export default function ReportsPage() {
       setTransactionsError(false);
       setCashFlowError(false);
       setComparisonError(false);
+      setRevenueEvolutionError(false);
     }
   };
 
@@ -571,6 +592,7 @@ export default function ReportsPage() {
     setTransactionsError(false);
     setCashFlowError(false);
     setComparisonError(false);
+    setRevenueEvolutionError(false);
     setReloadKey((value) => value + 1);
   };
 
@@ -581,6 +603,7 @@ export default function ReportsPage() {
     transactionsError ? "movimentações" : null,
     cashFlowError ? "fluxo de caixa" : null,
     comparisonError ? "comparação de períodos" : null,
+    revenueEvolutionError ? "evolução do faturamento" : null,
   ].filter(Boolean);
 
   const recentTransactions =
@@ -781,6 +804,85 @@ export default function ReportsPage() {
             loading={loading}
             positive
           />
+        </div>
+      </Section>
+
+      {/* Evolução do faturamento */}
+      <Section
+        title="Evolução do faturamento"
+        description="Faturamento mensal dentro do período selecionado"
+      >
+        <div className="min-w-0 rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-stone-500">Faturamento no período</p>
+              <div className="mt-2 text-2xl font-bold text-[#342d27]">
+                <Value value={revenueEvolution?.totalRevenue} loading={loading} />
+              </div>
+            </div>
+            <div className="rounded-xl bg-[#f7f2e9] p-3">
+              <TrendingUp className="h-5 w-5 text-[#a98a58]" />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex h-[320px] items-center justify-center"><Loading /></div>
+          ) : revenueEvolutionError ? (
+            <div className="flex h-[320px] items-center justify-center text-center text-sm text-red-600">
+              Não foi possível carregar a evolução do faturamento.
+            </div>
+          ) : !revenueEvolution?.months.length ? (
+            <div className="flex h-[320px] items-center justify-center text-center text-sm text-stone-500">
+              Nenhum dado de faturamento encontrado neste período.
+            </div>
+          ) : (
+            <div className="h-[320px] w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={revenueEvolution.months.map((item) => ({
+                    month: formatMonth(item.month),
+                    revenue: item.revenue,
+                  }))}
+                  margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="reportsRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a98a58" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#a98a58" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#f0ece5" strokeDasharray="4 4" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#78716c", fontSize: 12 }} dy={12} />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#78716c", fontSize: 11 }}
+                    tickFormatter={(value: number) => new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(value)}
+                    width={54}
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatValue(Number(value ?? 0)), "Faturamento"]}
+                    labelFormatter={(label) => `Mês: ${label}`}
+                    contentStyle={{ border: "1px solid #ece6dc", borderRadius: 12, backgroundColor: "#fff", boxShadow: "0 8px 24px rgba(0,0,0,0.06)" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#a98a58"
+                    strokeWidth={3}
+                    fill="url(#reportsRevenueGradient)"
+                    dot={{ r: 4, fill: "#fff", stroke: "#a98a58", strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: "#a98a58", stroke: "#fff", strokeWidth: 2 }}
+                    isAnimationActive
+                    animationDuration={700}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <p className="mt-5 text-xs text-stone-400">
+            Valores vendidos por mês, incluindo recebimentos pendentes. Os meses nas extremidades respeitam as datas selecionadas.
+          </p>
         </div>
       </Section>
 
