@@ -22,6 +22,7 @@ const navigation = [
   { label: "Produtos", icon: Package, href: "/produtos" },
   { label: "Categorias", icon: Tags, href: "/categorias" },
   { label: "Vendas", icon: ShoppingBag, href: "/vendas" },
+  { label: "Histórico Financeiro", icon: ShoppingBag, href: "/movimentacoes" },
   { label: "Clientes", icon: Users, href: "/clientes" },
   { label: "Estoque", icon: Boxes, href: "/estoque" },
   { label: "Despesas", icon: CreditCard, href: "/despesas" },
