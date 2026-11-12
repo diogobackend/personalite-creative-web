@@ -888,13 +888,13 @@ export default function ReportsPage() {
 
       {/* Evolução do faturamento */}
       <Section
-        title="Evolução do faturamento"
-        description="Faturamento mensal dentro do período selecionado"
+        title="Evolução dos recebimentos"
+        description="Dinheiro efetivamente recebido das vendas em cada mês"
       >
         <div className="min-w-0 rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-medium text-stone-500">Faturamento no período</p>
+              <p className="text-xs font-medium text-stone-500">Total recebido no período</p>
               <div className="mt-2 text-2xl font-bold text-[#342d27]">
                 <Value value={revenueEvolution?.totalRevenue} loading={loading} />
               </div>
@@ -940,7 +940,7 @@ export default function ReportsPage() {
                     width={54}
                   />
                   <Tooltip
-                    formatter={(value) => [formatValue(Number(value ?? 0)), "Faturamento"]}
+                    formatter={(value) => [formatValue(Number(value ?? 0)), "Recebimentos"]}
                     labelFormatter={(label) => `Mês: ${label}`}
                     contentStyle={{ border: "1px solid #ece6dc", borderRadius: 12, backgroundColor: "#fff", boxShadow: "0 8px 24px rgba(0,0,0,0.06)" }}
                   />
@@ -960,7 +960,7 @@ export default function ReportsPage() {
             </div>
           )}
           <p className="mt-5 text-xs text-stone-400">
-            Valores vendidos por mês, incluindo recebimentos pendentes. Os meses nas extremidades respeitam as datas selecionadas.
+            Valores efetivamente recebidos em cada mês, considerando as datas das movimentações financeiras. Os meses nas extremidades respeitam as datas selecionadas.
           </p>
         </div>
       </Section>
@@ -997,9 +997,9 @@ export default function ReportsPage() {
           />
 
           <MetricCard
-            title="Percentual já recebido"
+            title="Recebimentos sobre vendas"
             value={salesReport?.receivedPercentage}
-            description="Parcela do faturamento já recebida"
+            description="Relação entre recebimentos do período e vendas registradas no período"
             icon={Percent}
             loading={loading}
             format="percentage"
@@ -1056,9 +1056,9 @@ export default function ReportsPage() {
           />
 
           <MetricCard
-            title="Percentual já pago"
+            title="Pagamentos sobre despesas"
             value={expensesReport?.paidPercentage}
-            description="Parcela das despesas que já foi paga"
+            description="Relação entre pagamentos do período e despesas previstas no período"
             icon={Percent}
             loading={loading}
             format="percentage"
@@ -1107,7 +1107,7 @@ export default function ReportsPage() {
           </div>
 
           <PaymentProgress
-            title="Quanto das vendas já foi recebido"
+            title="Recebimentos do período sobre vendas registradas"
             percentage={salesReport?.receivedPercentage}
             loading={loading}
             color="green"
@@ -1153,7 +1153,7 @@ export default function ReportsPage() {
           </div>
 
           <PaymentProgress
-            title="Quanto das despesas já foi pago"
+            title="Pagamentos do período sobre despesas previstas"
             percentage={expensesReport?.paidPercentage}
             loading={loading}
             color="red"
@@ -1200,7 +1200,7 @@ export default function ReportsPage() {
             </h3>
 
             <p className="mt-1 text-xs text-stone-400">
-              Até 10 registros, ordenados pela data de referência
+              Até 10 registros, ordenados pela data efetiva da movimentação
             </p>
           </div>
 
@@ -1230,7 +1230,7 @@ export default function ReportsPage() {
       {/* Fluxo de caixa */}
       <Section
         title="Fluxo de caixa"
-        description="Entradas, saídas e saldo por data de referência no período selecionado"
+        description="Entradas, saídas e saldo pelas datas efetivas das movimentações financeiras"
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard
@@ -1263,7 +1263,7 @@ export default function ReportsPage() {
               Fluxo diário
             </h3>
             <p className="mt-1 text-xs text-stone-400">
-              Movimentações agrupadas pela data de referência, não necessariamente pela data do pagamento
+              Movimentações agrupadas pela data efetiva de cada recebimento ou pagamento
             </p>
           </div>
           {loading ? (
@@ -1333,9 +1333,9 @@ export default function ReportsPage() {
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
             {([
-              { label: "Faturamento", key: "revenue" as const, variation: "revenuePercentage" as const, icon: ShoppingBag },
-              { label: "Despesas", key: "expenses" as const, variation: "expensesPercentage" as const, icon: CircleDollarSign },
-              { label: "Lucro previsto", key: "profit" as const, variation: "profitPercentage" as const, icon: TrendingUp },
+              { label: "Recebimentos", key: "revenue" as const, variation: "revenuePercentage" as const, icon: ShoppingBag },
+              { label: "Pagamentos", key: "expenses" as const, variation: "expensesPercentage" as const, icon: CircleDollarSign },
+              { label: "Lucro realizado", key: "profit" as const, variation: "profitPercentage" as const, icon: TrendingUp },
             ]).map((item) => {
               const Icon = item.icon;
               const variation = comparisonReport?.variations[item.variation];
@@ -1356,7 +1356,7 @@ export default function ReportsPage() {
                     <div>
                       <p className="text-xs text-stone-400">Período anterior</p>
                       <div className="mt-1 text-base font-semibold text-stone-600">
-                        <Value value={variation} loading={loading} format="percentage" />
+                        <Value value={comparisonReport?.previousPeriod[item.key]} loading={loading} />
                       </div>
                     </div>
                     <div className="border-t border-[#f0ece5] pt-3">

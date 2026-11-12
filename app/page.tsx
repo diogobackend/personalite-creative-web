@@ -476,7 +476,7 @@ export default function HomePage() {
     transactionsError ? "movimentações" : null,
     cashFlowError ? "fluxo de caixa" : null,
     comparisonError ? "comparação de períodos" : null,
-    revenueEvolutionError ? "evolução do faturamento" : null,
+    revenueEvolutionError ? "evolução dos recebimentos" : null,
   ].filter(Boolean);
 
   return (
@@ -553,7 +553,7 @@ export default function HomePage() {
               <option value="TRANSACTIONS">Movimentações</option>
               <option value="CASH_FLOW">Fluxo de caixa</option>
               <option value="COMPARISON">Comparação de períodos</option>
-              <option value="REVENUE_EVOLUTION">Evolução do faturamento</option>
+              <option value="REVENUE_EVOLUTION">Evolução dos recebimentos</option>
             </select>
             <select
               aria-label="Formato de exportação"
@@ -618,7 +618,7 @@ export default function HomePage() {
             title="Dinheiro recebido"
             value={overview?.receivedRevenue}
             icon={Wallet}
-            description="Valor das vendas que já foi recebido"
+            description="Recebimentos efetivos no mês, inclusive de vendas anteriores"
             loading={loading}
           />
 
@@ -634,16 +634,16 @@ export default function HomePage() {
             title="Lucro líquido realizado"
             value={overview?.realizedProfit}
             icon={TrendingUp}
-            description="Dinheiro recebido menos as despesas pagas"
+            description="Recebimentos menos pagamentos efetivos do mês"
             loading={loading}
           />
         </div>
       </Section>
 
-      {/* Evolução do faturamento */}
+      {/* Evolução dos recebimentos */}
       <Section
-        title="Evolução do faturamento"
-        description="Faturamento bruto mensal dos últimos seis meses"
+        title="Evolução dos recebimentos"
+        description="Recebimentos efetivos das vendas nos últimos seis meses"
         link
       >
         <div className="rounded-2xl border border-[#ece6dc] bg-white p-5 shadow-sm sm:p-7">
@@ -669,7 +669,7 @@ export default function HomePage() {
             </div>
           ) : !revenueEvolution?.months.length ? (
             <div className="flex h-[300px] items-center justify-center text-sm text-stone-500">
-              Nenhum dado de faturamento encontrado.
+              Nenhum recebimento encontrado.
             </div>
           ) : (
             <div className="h-[300px] w-full min-w-0">
@@ -705,7 +705,7 @@ export default function HomePage() {
                     width={54}
                   />
                   <Tooltip
-                    formatter={(value, name) => [formatCurrency(Number(value ?? 0)), "Faturamento"]}
+                    formatter={(value) => [formatCurrency(Number(value ?? 0)), "Recebimentos"]}
                     labelFormatter={(label) => `Mês: ${label}`}
                     contentStyle={{
                       border: "1px solid #ece6dc",
@@ -730,7 +730,7 @@ export default function HomePage() {
             </div>
           )}
           <p className="mt-5 text-xs text-stone-400">
-            Valores vendidos por mês, incluindo recebimentos pendentes. O mês atual considera os dados até hoje.
+            Valores efetivamente recebidos em cada mês, conforme a data das movimentações. O mês atual considera os dados até hoje.
           </p>
         </div>
       </Section>
@@ -768,10 +768,10 @@ export default function HomePage() {
           />
 
           <MetricCard
-            title="Vendas já recebidas"
+            title="Recebimentos sobre vendas"
             value={salesReport?.receivedPercentage}
             icon={Percent}
-            description="Percentual do faturamento que já entrou"
+            description="Relação entre recebimentos do mês e vendas registradas no mês"
             loading={loading}
             format="percentage"
           />
@@ -806,7 +806,7 @@ export default function HomePage() {
             title="Despesas já pagas"
             value={expensesReport?.paidAmount}
             icon={ArrowDownRight}
-            description="Valor que já saiu para pagar despesas"
+            description="Pagamentos efetivos realizados no mês"
             loading={loading}
           />
 
@@ -828,10 +828,10 @@ export default function HomePage() {
           />
 
           <MetricCard
-            title="Despesas já quitadas"
+            title="Pagamentos sobre despesas"
             value={expensesReport?.paidPercentage}
             icon={Percent}
-            description="Percentual do valor total das despesas já pago"
+            description="Relação entre pagamentos do mês e despesas previstas no mês"
             loading={loading}
             format="percentage"
           />
@@ -894,7 +894,7 @@ export default function HomePage() {
           </div>
 
           <PaymentProgress
-            title="Quanto das vendas já foi recebido"
+            title="Recebimentos em relação às vendas do mês"
             percentage={salesReport?.receivedPercentage}
             loading={loading}
             color="green"
@@ -955,7 +955,7 @@ export default function HomePage() {
           </div>
 
           <PaymentProgress
-            title="Quanto das despesas já foi pago"
+            title="Pagamentos em relação às despesas do mês"
             percentage={expensesReport?.paidPercentage}
             loading={loading}
             color="red"
@@ -966,7 +966,7 @@ export default function HomePage() {
       {/* Movimentações financeiras */}
       <Section
         title="Movimentações financeiras"
-        description="Resumo das entradas e saídas vinculadas às operações do mês"
+        description="Entradas e saídas efetivas registradas no mês, inclusive de operações anteriores"
         link
       >
         <div className="grid gap-4 sm:grid-cols-3">
@@ -974,7 +974,7 @@ export default function HomePage() {
             title="Entradas"
             value={transactionsReport?.totalEntries}
             icon={ArrowUpRight}
-            description="Valores recebidos das vendas do período"
+            description="Recebimentos efetivos registrados no mês"
             loading={loading}
           />
 
@@ -982,7 +982,7 @@ export default function HomePage() {
             title="Saídas"
             value={transactionsReport?.totalExits}
             icon={ArrowDownRight}
-            description="Valores pagos em despesas do período"
+            description="Pagamentos efetivos registrados no mês"
             loading={loading}
           />
 
@@ -999,7 +999,7 @@ export default function HomePage() {
       {/* Fluxo de caixa */}
       <Section
         title="Fluxo de caixa"
-        description="Entradas, saídas e saldo organizados por data de referência no mês"
+        description="Entradas, saídas e saldo pelas datas efetivas das movimentações"
         link
       >
         <div className="grid gap-4 sm:grid-cols-3">
@@ -1034,7 +1034,7 @@ export default function HomePage() {
               Movimentação por dia
             </h3>
             <p className="mt-1 text-xs text-stone-400">
-              Dias com movimentações registradas no período
+              Movimentações agrupadas pela data efetiva de recebimento ou pagamento
             </p>
           </div>
 
@@ -1223,21 +1223,21 @@ export default function HomePage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {([
             {
-              title: "Faturamento",
+              title: "Recebimentos",
               current: comparisonReport?.currentPeriod.revenue,
               previous: comparisonReport?.previousPeriod.revenue,
               variation: comparisonReport?.variations.revenuePercentage,
               icon: ShoppingBag,
             },
             {
-              title: "Despesas",
+              title: "Pagamentos",
               current: comparisonReport?.currentPeriod.expenses,
               previous: comparisonReport?.previousPeriod.expenses,
               variation: comparisonReport?.variations.expensesPercentage,
               icon: CircleDollarSign,
             },
             {
-              title: "Lucro previsto",
+              title: "Lucro realizado",
               current: comparisonReport?.currentPeriod.profit,
               previous: comparisonReport?.previousPeriod.profit,
               variation: comparisonReport?.variations.profitPercentage,
@@ -1286,7 +1286,7 @@ export default function HomePage() {
           </p>
         )}
         <p className="mt-4 text-xs text-stone-400">
-          Comparação de valores previstos. O mês atual considera os dados até hoje;
+          Comparação de recebimentos, pagamentos e lucro realizados pelas datas das movimentações. O mês atual considera os dados até hoje;
           o mês anterior considera o mês completo.
         </p>
       </Section>
