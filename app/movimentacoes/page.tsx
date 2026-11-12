@@ -153,8 +153,7 @@ const QUICK_FILTERS: {
   { label: "Saídas", field: "direction", value: "OUT" },
   { label: "Vendas", field: "origin", value: "SALE" },
   { label: "Despesas", field: "origin", value: "EXPENSE" },
-  { label: "Pagamentos", field: "operation", value: "PAYMENT" },
-  { label: "Estornos", field: "operation", value: "REFUND" },
+  { label: "Pagamentos", field: "operation", value: "PAYMENT" }
 ];
 
 function Field({
@@ -439,9 +438,6 @@ export default function MovementsPageScreen() {
           <h1 className="mt-2 font-serif text-3xl text-[#342d27] sm:text-4xl">
             Movimentações financeiras
           </h1>
-          <p className="mt-2 text-sm text-[#81766b]">
-            Histórico de operações financeiras de vendas e despesas.
-          </p>
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -449,28 +445,24 @@ export default function MovementsPageScreen() {
             title="Entradas"
             value={formatCurrency(pageSummary.entries)}
             icon={<ArrowDownLeft size={20} />}
-            detail="Total da página atual"
           />
 
           <SummaryCard
             title="Saídas"
             value={formatCurrency(pageSummary.exits)}
             icon={<ArrowUpRight size={20} />}
-            detail="Total da página atual"
           />
 
           <SummaryCard
             title="Saldo"
             value={formatCurrency(pageSummary.balance)}
             icon={<Wallet size={20} />}
-            detail="Entradas menos saídas nesta página"
           />
 
           <SummaryCard
             title="Movimentações"
             value={String(totalElements)}
             icon={<ArrowLeftRight size={20} />}
-            detail={`${pageSummary.count} exibidas nesta página`}
           />
         </section>
 
@@ -480,7 +472,7 @@ export default function MovementsPageScreen() {
               <div className="mb-5 flex items-center gap-2">
                 <CalendarDays size={19} className="text-[#a98a58]" />
                 <h2 className="text-base font-semibold text-[#342d27]">
-                  Filtrar movimentações
+                  Filtrar
                 </h2>
               </div>
 
@@ -514,12 +506,11 @@ export default function MovementsPageScreen() {
                     onChange={(event) =>
                       updateDraft("originId", event.target.value)
                     }
-                    placeholder="5 caracteres iniciais ou UUID completo"
                     maxLength={36}
                   />
                 </Field>
 
-                <Field label="Valor da movimentação — A partir de">
+                <Field label="Valor — A partir de">
                   <input
                     type="number"
                     min="0"
@@ -533,7 +524,7 @@ export default function MovementsPageScreen() {
                   />
                 </Field>
 
-                <Field label="Valor da movimentação — Até">
+                <Field label="Valor — Até">
                   <input
                     type="number"
                     min="0"
@@ -724,7 +715,7 @@ export default function MovementsPageScreen() {
           <div className="flex flex-col justify-between gap-4 border-b border-[#f0ece5] p-5 sm:p-6 lg:flex-row lg:items-center">
             <div>
               <h2 className="text-lg font-semibold text-[#342d27]">
-                Histórico financeiro
+                Histórico
               </h2>
 
               <p className="mt-1 text-sm text-[#81766b]">
@@ -831,12 +822,12 @@ export default function MovementsPageScreen() {
 
               <thead className="bg-[#f8f5f0]">
                 <tr className="text-xs font-semibold uppercase tracking-wide text-[#81766b]">
-                  <th className="px-5 py-4">Data</th>
-                  <th className="px-5 py-4">Origem / ID</th>
+                  <th className="px-5 py-4">ID</th>
                   <th className="px-5 py-4">Operação</th>
                   <th className="px-5 py-4">Entrada / Saída</th>
                   <th className="px-5 py-4">Valor</th>
-                  <th className="px-5 py-4">Descrição / Status</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Data</th>
                 </tr>
               </thead>
 
@@ -856,104 +847,92 @@ export default function MovementsPageScreen() {
                       colSpan={6}
                       className="px-5 py-16 text-center text-sm text-[#81766b]"
                     >
-                      Nenhuma movimentação encontrada.
-                      Experimente remover alguns filtros.
+                      Nenhuma movimentação encontrada
                     </td>
                   </tr>
                 ) : (
-                  movements.map((movement) => {
-                    const isEntry = movement.direction === "IN";
-                    const isExit = movement.direction === "OUT";
+                  
+                movements.map((movement) => {
+                  const isEntry = movement.direction === "IN";
+                  const isExit = movement.direction === "OUT";
 
-                    const originPath =
-                      movement.origin === "SALE"
-                        ? `/vendas/${movement.originId}`
-                        : `/despesas/${movement.originId}`;
+                  const originPath =
+                    movement.origin === "SALE"
+                      ? `/vendas/${movement.originId}`
+                      : `/despesas/${movement.originId}`;
 
-                    return (
-                      <tr
-                        key={movement.id}
-                        className="border-b border-[#eee8df] bg-white transition-colors even:bg-[#e9e4dc] hover:bg-[#ded7cc]"
-                      >
-                        <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
-                          {formatDateTime(movement.createdAt)}
-                        </td>
-
-                        <td className="px-5 py-4 align-middle">
-                          <Link
-                            href={originPath}
-                            title={`Abrir ${
-                              movement.origin === "SALE"
-                                ? "venda"
-                                : "despesa"
-                            } ${movement.originId}`}
-                            className="font-semibold text-[#342d27] hover:text-[#a98a58] hover:underline"
-                          >
-                            {movement.origin === "SALE"
-                              ? "Venda"
-                              : "Despesa"}
-                          </Link>
-
-                          <p
-                            className="mt-1 text-xs text-[#81766b]"
-                            title={movement.originId}
-                          >
-                            ID: {movement.originCode}
-                          </p>
-                        </td>
-
-                        <td className="px-5 py-4 align-middle text-sm font-medium text-[#51473d]">
-                          {OPERATION_LABELS[movement.operation] ??
-                            movement.operation}
-                        </td>
-
-                        <td className="px-5 py-4 align-middle">
-                          <MovementDirectionBadge
-                            direction={movement.direction}
-                          />
-                        </td>
-
-                        <td
-                          className={`px-5 py-4 align-middle text-sm font-semibold ${
-                            isEntry
-                              ? "text-emerald-700"
-                              : isExit
-                                ? "text-red-700"
-                                : "text-[#342d27]"
-                          }`}
+                  return (
+                    <tr
+                      key={movement.id}
+                      className="border-b border-[#eee8df] bg-white transition-colors even:bg-[#e9e4dc] hover:bg-[#ded7cc]"
+                    >
+                      <td className="px-5 py-4 align-middle">
+                        <Link
+                          href={originPath}
+                          title={`Abrir ${
+                            movement.origin === "SALE" ? "venda" : "despesa"
+                          } ${movement.originId}`}
+                          className="font-semibold text-[#342d27] hover:text-[#a98a58] hover:underline"
                         >
-                          {isEntry ? "+ " : isExit ? "− " : ""}
-                          {formatCurrency(movement.amount)}
-                        </td>
+                          {movement.origin === "SALE" ? "Venda" : "Despesa"}
+                        </Link>
 
-                        <td className="px-5 py-4 align-middle">
-                          <p className="text-sm text-[#51473d]">
-                            {movement.description ?? "—"}
-                          </p>
+                        <p
+                          className="mt-1 text-xs text-[#81766b]"
+                          title={movement.originId}
+                        >
+                          ID: {movement.originCode}
+                        </p>
+                      </td>
 
-                          {movement.status && (
-                            <span className="mt-2 inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">
-                              {STATUS_LABELS[movement.status] ??
-                                movement.status}
-                            </span>
+                      <td className="px-5 py-4 align-middle text-sm font-medium text-[#51473d]">
+                        {OPERATION_LABELS[movement.operation] ?? movement.operation}
+                      </td>
+
+                      <td className="px-5 py-4 align-middle">
+                        <MovementDirectionBadge direction={movement.direction} />
+                      </td>
+
+                      <td
+                        className={`px-5 py-4 align-middle text-sm font-semibold ${
+                          isEntry
+                            ? "text-emerald-700"
+                            : isExit
+                              ? "text-red-700"
+                              : "text-[#342d27]"
+                        }`}
+                      >
+                        {isEntry ? "+ " : isExit ? "− " : ""}
+                        {formatCurrency(movement.amount)}
+                      </td>
+
+                      <td className="px-5 py-4 align-middle">
+                        <p className="text-sm text-[#51473d]">
+                          {movement.description ?? "—"}
+                        </p>
+
+                        {movement.status && (
+                          <span className="mt-2 inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">
+                            {STATUS_LABELS[movement.status] ?? movement.status}
+                          </span>
+                        )}
+
+                        {movement.previousValue !== null &&
+                          movement.currentValue !== null && (
+                            <p className="mt-2 text-xs text-[#81766b]">
+                              {formatCurrency(movement.previousValue)} →{" "}
+                              {formatCurrency(movement.currentValue)}
+                            </p>
                           )}
+                      </td>
 
-                          {movement.previousValue !== null &&
-                            movement.currentValue !== null && (
-                              <p className="mt-2 text-xs text-[#81766b]">
-                                {formatCurrency(
-                                  movement.previousValue,
-                                )}{" "}
-                                →{" "}
-                                {formatCurrency(
-                                  movement.currentValue,
-                                )}
-                              </p>
-                            )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                      <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
+                        {formatDateTime(movement.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })
+
                 )}
               </tbody>
             </table>
