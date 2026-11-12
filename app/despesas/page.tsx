@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -136,7 +135,7 @@ const STATUS_OPTIONS: { value: ExpenseStatus; label: string }[] = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "expenseDate", label: "Data da despesa" },
+  { value: "expenseDate", label: "Data" },
   { value: "createdAt", label: "Data de cadastro" },
   { value: "updatedAt", label: "Última atualização" },
   { value: "name", label: "Nome" },
@@ -900,12 +899,13 @@ export default function ExpensesPageScreen() {
             <table className="w-full min-w-[900px] border-collapse text-left">
               <thead className="bg-[#f8f5f0]">
                 <tr className="text-xs font-semibold uppercase tracking-wide text-[#81766b]">
+                  <th className="px-5 py-4">ID</th>
                   <th className="px-5 py-4">Despesa</th>
                   <th className="px-5 py-4">Categoria</th>
                   <th className="px-5 py-4">Valor</th>
                   <th className="px-5 py-4">Alocação</th>
                   <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Data da despesa</th>
+                  <th className="px-5 py-4">Data</th>
                   <th className="px-5 py-4 text-center">Visualizar / Editar</th>
                 </tr>
               </thead>
@@ -914,7 +914,7 @@ export default function ExpensesPageScreen() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-5 py-16 text-center text-sm text-[#81766b]"
                     >
                       <Loading />
@@ -923,7 +923,7 @@ export default function ExpensesPageScreen() {
                 ) : !result?.content.length ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-5 py-16 text-center text-sm text-[#81766b]"
                     >
                       Nenhuma despesa encontrada.
@@ -935,6 +935,10 @@ export default function ExpensesPageScreen() {
                       key={expense.id}
                       className="border-b border-[#eee8df] odd:bg-white even:bg-[#e9e3da] transition-colors hover:!bg-[#ded3c4]"
                     >
+                      <td className="px-5 py-4 text-sm font-semibold text-[#342d27]" title={expense.id}>
+                        {expense.id.slice(0, 5).toUpperCase()}
+                      </td>
+
                       <td className="px-5 py-4">
                         <Link
                           href={`/despesas/${expense.id}`}

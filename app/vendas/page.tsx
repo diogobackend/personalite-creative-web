@@ -133,9 +133,6 @@ const formatDate = (value?: string | null) => {
   return year && month && day ? `${day}/${month}/${year}` : value;
 };
 
-const PAYMENT_LABELS: Record<PaymentStatus, string> = {
-  UNPAID: "Não paga", PARTIALLY_PAID: "Parcialmente paga", PAID: "Paga",
-};
 const DEADLINE_LABELS: Record<DeadlineStatus, string> = {
   NO_DEADLINE: "Sem prazo", ON_TIME: "No prazo", DUE_TODAY: "Vence hoje", OVERDUE: "Atrasada",
 };
@@ -531,26 +528,30 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
   )}
 
   <div className="overflow-x-auto">
-    <table className="w-full min-w-[1100px] table-fixed border-collapse text-left">
+    <table className="w-full min-w-[1280px] table-fixed border-collapse text-left">
       <colgroup>
-        <col style={{ width: "15%" }} />
-        <col style={{ width: "13%" }} />
-        <col style={{ width: "15%" }} />
-        <col style={{ width: "19%" }} />
+        <col style={{ width: "7%" }} />
         <col style={{ width: "14%" }} />
+        <col style={{ width: "11%" }} />
+        <col style={{ width: "13%" }} />
+        <col style={{ width: "17%" }} />
         <col style={{ width: "13%" }} />
         <col style={{ width: "11%" }} />
+        <col style={{ width: "5%" }} />
+        <col style={{ width: "9%" }} />
       </colgroup>
 
       <thead className="bg-[#f8f5f0]">
         <tr className="text-xs font-semibold uppercase tracking-wide text-[#81766b]">
+          <th className="px-3 py-4">ID</th>
           <th className="px-5 py-4">Cliente</th>
           <th className="px-5 py-4">Produtos</th>
           <th className="px-5 py-4">Valor total</th>
           <th className="px-5 py-4">Recebido / restante</th>
           <th className="px-5 py-4">Pagamento</th>
           <th className="px-5 py-4">Entrega</th>
-          <th className="px-3 py-4 text-center">Visualizar / Editar</th>
+          <th className="px-2 py-4 text-center">Data</th>
+          <th className="px-2 py-4 text-center">Visualizar / Editar</th>
         </tr>
       </thead>
 
@@ -558,7 +559,7 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
         {loading ? (
           <tr>
             <td
-              colSpan={7}
+              colSpan={9}
               className="px-5 py-16 text-center text-sm text-[#81766b]"
             >
              <Loading />
@@ -567,15 +568,15 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
         ) : !result?.sales.length ? (
           <tr>
             <td
-              colSpan={7}
+              colSpan={9}
               className="px-5 py-16 text-center text-sm text-[#81766b]"
             >
-              Nenhuma venda encontrada. Experimente remover alguns filtros.
+              Nenhuma venda encontrada.
             </td>
           </tr>
         ) : (
           result.sales.map((sale) => {
-            const shortId = sale.id.slice(0, 8).toUpperCase();
+            const shortId = sale.id.slice(0, 5).toUpperCase();
             const customerName =
               customerNames[sale.customerId] ?? "Cliente indisponível";
 
@@ -586,6 +587,9 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
                     onClick={() => router.push(`/vendas/${sale.id}`)}
                     className="cursor-pointer border-b border-[#eee8df] bg-white transition-colors even:bg-[#e9e4dc] hover:bg-[#ded7cc]"
                     >
+                    <td className="px-3 py-4 align-middle text-xs font-semibold text-[#342d27]" title={sale.id}>
+                      {shortId}
+                    </td>
                     <td className="px-5 py-4 align-middle">
                     <span
                         className="block truncate font-semibold text-[#342d27]"
@@ -593,9 +597,6 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
                     >
                         {customerName.slice(0, 13)}
                     </span>
-                    <p className="mt-1 text-xs text-[#81766b]">
-                        {formatDate(sale.createdAt)}
-                    </p>
                     </td>
 
                     <td className="px-5 py-4 align-middle text-sm text-[#51473d]">
@@ -673,6 +674,9 @@ const toggleQuickFilter = (field: keyof Filters, value: string) => {
                         ) : null}
                         </td>
 
+                    <td className="px-2 py-4 text-center align-middle text-xs text-[#81766b] whitespace-nowrap">
+                      {formatDate(sale.createdAt)}
+                    </td>
 
                     <td className="px-3 py-4 align-middle">
                     
