@@ -101,7 +101,7 @@ type ProductSale = {
   paymentMethod?: string;
   observation?: string | null;
   deadlineStatus?: string;
-  items?: Array<{ productId: string; quantity: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
+  items?: Array<{ productId: string; quantity: number; unitPrice?: number; additionalAmount?: number; totalPrice?: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
 };
 type SalePage = {
   sales: Array<{
@@ -119,7 +119,7 @@ type SalePage = {
     paymentMethod?: string;
     observation?: string | null;
     deadlineStatus?: string;
-    items: Array<{ productId: string; quantity: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
+    items: Array<{ productId: string; quantity: number; unitPrice?: number; additionalAmount?: number; totalPrice?: number; color?: string | null; brand?: string | null; model?: string | null; size?: string | null; material?: string | null }>;
   }>;
   pagination: { totalPages: number };
 };
@@ -425,7 +425,7 @@ function ProductDetailsContent() {
             if (items.length) collected.push({
               id: sale.id,
               customerId: sale.customerId,
-              totalAmount: sale.totalAmount,
+              totalAmount: items.reduce((sum, item) => sum + (item.totalPrice ?? (item.quantity * (item.unitPrice ?? 0) + (item.additionalAmount ?? 0))), 0),
               paymentStatus: sale.paymentStatus,
               createdAt: sale.createdAt,
               quantity: items.reduce((sum, item) => sum + item.quantity, 0),
@@ -871,7 +871,7 @@ function ProductDetailsContent() {
       </table>
     </div>
     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6d7c2] bg-[#efe4d4] px-5 py-4">
-      <span className="text-sm font-semibold text-[#51473d]">{number.format(totalSoldUnits)} unidade(s) · Total das vendas que incluem este produto</span>
+      <span className="text-sm font-semibold text-[#51473d]">{number.format(totalSoldUnits)} unidade(s) · Total vendido deste produto</span>
       <span className="text-xl font-bold text-[#342d27]">{currency.format(totalFilteredSales)}</span>
     </div>
   </section>
