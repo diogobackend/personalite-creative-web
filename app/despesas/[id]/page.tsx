@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -15,6 +14,8 @@ import {
   Package,
   Pencil,
   ReceiptText,
+  ArrowDownRight,
+  ArrowUpRight,
 } from "lucide-react";
 import type { ElementType, ReactNode } from "react";
 import Loading from "@/src/components/layout/Loading";
@@ -60,6 +61,34 @@ type Expense = {
   updatedAt: string;
 };
 
+type Movement = {
+  id: string;
+  originId: string;
+  originCode: string;
+  origin: "SALE" | "EXPENSE";
+  operation: string;
+  direction: "IN" | "OUT" | null;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+};
+
+type MovementsPageResponse = {
+  content: Movement[];
+  page: number;
+  totalPages: number;
+  last: boolean;
+};
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  UPDATED: "Despesa atualizada",
+  PAYMENT: "Pagamento",
+  REFUND: "Estorno",
+  VALUE_ADJUSTMENT_INCREASE: "Aumento de valor",
+  VALUE_ADJUSTMENT_DECREASE: "Redução de valor",
+  CANCELLED: "Cancelamento",
+};
+
 type Product = {
   id: string;
   name: string;
@@ -80,12 +109,6 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   EQUIPMENT: "Equipamentos",
   STOCK: "Estoque",
   OTHER: "Outros",
-};
-
-const ALLOCATION_LABELS: Record<ExpenseAllocationType, string> = {
-  GENERAL: "Geral",
-  SPECIFIC_PRODUCT: "Produto",
-  CATEGORY_PRODUCTS: "Categoria de produtos",
 };
 
 const STATUS_LABELS: Record<ExpenseStatus, string> = {
@@ -187,6 +210,8 @@ function ExpenseDetailsContent() {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [products, setProducts] = useState<Record<string, Product>>({});
   const [loading, setLoading] = useState(true);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [movementsError, setMovementsError] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -219,6 +244,39 @@ function ExpenseDetailsContent() {
         const expenseData = expenseResponse.data;
 
         setExpense(expenseData);
+
+        // Busca as movimentações vinculadas ao ID desta despesa.
+        try {
+          const response = await api.get<Movement[] | MovementsPageResponse | Movement>(
+            `/moviments`,
+            {
+              headers,
+              params: { page: 0, size: 100 },
+            }
+          );
+          const data = response.data;
+          const expenseMovements = Array.isArray(data)
+            ? data
+            : "content" in data
+              ? data.content
+              : [data];
+
+          if (active) {
+            setMovements(
+              expenseMovements
+                .filter((movement) =>
+                  movement.origin === "EXPENSE" &&
+                  movement.originId === id &&
+                  movement.operation !== "CREATED"
+                )
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            );
+            setMovementsError(false);
+          }
+        } catch (movementError) {
+          console.error("Erro ao carregar movimentações da despesa:", movementError);
+          if (active) setMovementsError(true);
+        }
 
         if (expenseData.products?.length) {
           try {
@@ -494,6 +552,49 @@ function ExpenseDetailsContent() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </Section>
+
+        <Section title="Histórico de movimentações" icon={ReceiptText}>
+          {movementsError ? (
+            <p className="text-sm text-[#81766b]">Não foi possível carregar o histórico.</p>
+          ) : movements.length === 0 ? (
+            <p className="text-sm text-[#81766b]">Nenhuma movimentação encontrada.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-[#eee8df] bg-[#faf8f5] text-xs uppercase tracking-wide text-[#81766b]">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">ID</th>
+                    <th className="px-4 py-3 font-medium">Valor</th>
+                    <th className="px-4 py-3 font-medium">Operação</th>
+                    <th className="px-4 py-3 font-medium">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.map((movement) => (
+                    <tr key={movement.id} className="border-b border-[#eee8df] last:border-b-0">
+                      <td className="px-4 py-4 font-semibold text-[#342d27]">
+                        {movement.originCode.toUpperCase()}
+                      </td>
+                      <td className={`whitespace-nowrap px-4 py-4 font-semibold ${movement.direction === "OUT" ? "text-red-600" : movement.direction === "IN" ? "text-emerald-700" : "text-[#342d27]"}`}>
+                        {movement.direction === "OUT" ? "− " : movement.direction === "IN" ? "+ " : ""}
+                        {formatCurrency(movement.amount)}
+                      </td>
+                      <td className="px-4 py-4 text-[#342d27]">
+                        <span className="inline-flex items-center gap-1.5">
+                          {movement.direction === "OUT" ? <ArrowDownRight size={15} className="text-red-600" /> : movement.direction === "IN" ? <ArrowUpRight size={15} className="text-emerald-700" /> : null}
+                          {MOVEMENT_LABELS[movement.operation] ?? movement.operation}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-[#342d27]">
+                        {formatDateTime(movement.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </Section>

@@ -2,11 +2,14 @@
 "use client";
 
 import { useEffect, useState, type ElementType, type ReactNode } from "react";
+import { getColor } from "../../../src/utils/colors";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import {
   ArrowLeft,
+  ArrowDownRight,
+  ArrowUpRight,
   CalendarDays,
   CreditCard,
   FileText,
@@ -67,6 +70,33 @@ type Product = {
   id: string;
   name: string;
   code?: string | null;
+};
+
+type Movement = {
+  id: string;
+  originId: string;
+  originCode: string;
+  origin: "SALE" | "EXPENSE";
+  operation: string;
+  direction: "IN" | "OUT" | null;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+};
+
+type MovementsPageResponse = {
+  content: Movement[];
+  page: number;
+  totalPages: number;
+  last: boolean;
+};
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  UPDATED: "Venda atualizada",
+  PAYMENT: "Pagamento",
+  REFUND: "Estorno",
+  VALUE_ADJUSTMENT_INCREASE: "Aumento de valor",
+  VALUE_ADJUSTMENT_DECREASE: "Redução de valor",
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -173,6 +203,8 @@ function SaleDetailsContent() {
   const [products, setProducts] = useState<Record<string, Product>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [movementsError, setMovementsError] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -218,6 +250,33 @@ function SaleDetailsContent() {
         ]);
 
         if (controller.signal.aborted) return;
+
+        try {
+          const { data } = await api.get<Movement[] | MovementsPageResponse>(
+            "/moviments",
+            { ...config, params: { page: 0, size: 100 } }
+          );
+
+          if (controller.signal.aborted) return;
+
+          const allMovements = Array.isArray(data) ? data : data.content;
+          setMovements(
+            allMovements
+              .filter((movement) =>
+                movement.origin === "SALE" &&
+                movement.originId === id &&
+                movement.operation !== "CREATED"
+              )
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          );
+          setMovementsError(false);
+        } catch (movementError) {
+          if (!controller.signal.aborted) {
+            console.error("Erro ao carregar movimentações da venda:", movementError);
+            setMovements([]);
+            setMovementsError(true);
+          }
+        }
 
         if (customersResult.status === "fulfilled") {
           const responseData =
@@ -532,13 +591,36 @@ function SaleDetailsContent() {
 
                         {characteristics.length > 0 && (
                         <div className="mt-5 grid gap-4 border-t border-[#e8e0d4] pt-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {characteristics.map(([label, value]) => (
-                            <DetailField
-                                key={label}
-                                label={label ?? ""}
-                                value={value ?? "—"}
-                            />
-                            ))}
+                            {characteristics.map(([label, value]) => {
+                      const isColor = label === "Cor";
+                      const backgroundColor = isColor && value ? getColor(value) : undefined;
+
+                    return isColor ? (
+                      <div key={label} className="space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-[#94887b]">
+                          {label}
+                        </p>
+                        <span
+                          className="inline-flex rounded-lg border border-[#e8e0d4] px-3 py-2 text-sm font-medium"
+                          style={{
+                            backgroundColor: backgroundColor ?? "#f5f2e9",
+                            color:
+                              ["branco", "branca"].includes(value?.trim().toLowerCase() ?? "")
+                                ? "#000000"
+                                : "#FFFFFF",
+                          }}
+                        >
+                          {value}
+                        </span>
+                      </div>
+                    ) : (
+                      <DetailField
+                        key={label}
+                        label={label ?? ""}
+                        value={value ?? "—"}
+                      />
+                    );
+                  })}
                         </div>
                         )}
                     </div>
@@ -548,6 +630,49 @@ function SaleDetailsContent() {
             )}
             </Section>
 
+
+        <Section title="Histórico de movimentações" icon={ReceiptText}>
+          {movementsError ? (
+            <p className="text-sm text-[#81766b]">Não foi possível carregar o histórico.</p>
+          ) : movements.length === 0 ? (
+            <p className="text-sm text-[#81766b]">Nenhuma movimentação encontrada.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-[#eee8df] bg-[#faf8f5] text-xs uppercase tracking-wide text-[#81766b]">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">ID</th>
+                    <th className="px-4 py-3 font-medium">Valor</th>
+                    <th className="px-4 py-3 font-medium">Operação</th>
+                    <th className="px-4 py-3 font-medium">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.map((movement) => (
+                    <tr key={movement.id} className="border-b border-[#eee8df] last:border-b-0">
+                      <td className="px-4 py-4 font-semibold text-[#342d27]">
+                        {movement.originCode.toUpperCase()}
+                      </td>
+                      <td className={`whitespace-nowrap px-4 py-4 font-semibold ${movement.direction === "OUT" ? "text-red-600" : movement.direction === "IN" ? "text-emerald-700" : "text-[#342d27]"}`}>
+                        {movement.direction === "OUT" ? "− " : movement.direction === "IN" ? "+ " : ""}
+                        {formatCurrency(movement.amount)}
+                      </td>
+                      <td className="px-4 py-4 text-[#342d27]">
+                        <span className="inline-flex items-center gap-1.5">
+                          {movement.direction === "OUT" ? <ArrowDownRight size={15} className="text-red-600" /> : movement.direction === "IN" ? <ArrowUpRight size={15} className="text-emerald-700" /> : null}
+                          {MOVEMENT_LABELS[movement.operation] ?? movement.operation}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-[#342d27]">
+                        {formatDateTime(movement.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
 
         {sale.observation?.trim() && (
         <Section title="Observações" icon={FileText}>
